@@ -547,7 +547,8 @@ ul {
     transition: none;
   }
 
+  /* The status text says what is happening; the ring stays as a static indicator. */
   .spinner {
-    animation-duration: 2.4s;
+    animation: none;
   }
 }

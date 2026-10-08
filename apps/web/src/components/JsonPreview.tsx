@@ -52,7 +52,13 @@ export function JsonPreview({ result }: JsonPreviewProps) {
       <details className="json-preview">
         <summary>Pokaż podgląd JSON</summary>
         {/* Plain text node: React escapes it, nothing is interpreted as HTML. */}
-        <pre className="json-preview-text" tabIndex={0} aria-label="Wynik analizy w formacie JSON">
+        {/* A focusable, labelled region, so the scrollable preview works with the keyboard. */}
+        <pre
+          className="json-preview-text"
+          tabIndex={0}
+          role="region"
+          aria-label="Wynik analizy w formacie JSON"
+        >
           {json}
         </pre>
       </details>
