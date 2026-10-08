@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { AppEnv } from './env';
 import { ApiError, toErrorBody } from './errors';
+import { SERVER_TIMING_HEADER } from './headers';
+import { RequestMetrics, createDebugLog } from './lib/metrics';
 import { corsMiddleware } from './middleware/cors';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 import { createAnalyzeHandler, type AnalyzeHandlerOptions } from './routes/analyze';
@@ -18,6 +20,14 @@ export function createApp(options: AnalyzeHandlerOptions = {}) {
 
   app.post(
     '/analyze',
+    // First, so timings cover the whole request and are added to error responses too.
+    async (c, next) => {
+      const metrics = new RequestMetrics({ log: createDebugLog(c.env.DEBUG === '1') });
+      c.set('metrics', metrics);
+      await next();
+      c.res.headers.set(SERVER_TIMING_HEADER, metrics.toServerTiming());
+      metrics.log('response', { status: c.res.status, totalMs: metrics.elapsedMs() });
+    },
     rateLimitMiddleware,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,

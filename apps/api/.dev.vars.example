@@ -1,2 +1,4 @@
 MISTRAL_API_KEY=
 LLM_API_KEY=
+# Optional: set to 1 to log request timings and LLM attempts (local only).
+DEBUG=

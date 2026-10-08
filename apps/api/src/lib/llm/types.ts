@@ -15,15 +15,38 @@ export interface LlmPrompt {
 /** JSON Schema the response must follow. */
 export type JsonSchema = Record<string, unknown>;
 
+/** Token usage as reported by the provider. */
+export interface LlmUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface LlmOutput {
+  /** Raw text of the JSON response (unparsed); "" if the model returned nothing. */
+  text: string;
+  usage?: LlmUsage;
+  /** Why generation stopped, as reported by the provider (e.g. "stop", "length"). */
+  finishReason?: string;
+}
+
+export interface ProviderCallOptions {
+  signal?: AbortSignal;
+  /** Overrides the provider's default timeout for this call. */
+  timeoutMs?: number;
+}
+
 export interface LlmProvider {
   /** Short identifier, e.g. "mistral" (returned in the X-LLM-Provider header). */
   readonly name: string;
   /**
-   * Sends the prompt to the model and returns the raw text of its JSON
-   * response (unparsed). Throws LlmProviderError on transport and upstream
-   * failures.
+   * Sends the prompt to the model and returns its raw output. Throws
+   * LlmProviderError on transport and upstream failures.
    */
-  generate(prompt: LlmPrompt, jsonSchema: JsonSchema, signal?: AbortSignal): Promise<string>;
+  generate(
+    prompt: LlmPrompt,
+    jsonSchema: JsonSchema,
+    options?: ProviderCallOptions,
+  ): Promise<LlmOutput>;
 }
 
 export const DEFAULT_LLM_TIMEOUT_MS = 25_000;

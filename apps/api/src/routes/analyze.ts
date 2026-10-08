@@ -7,6 +7,7 @@ import { CACHE_HEADER, PROVIDER_HEADER } from '../headers';
 import { analyzeDocument } from '../lib/analyze';
 import { analysisCacheKey, readCachedAnalysis, writeCachedAnalysis } from '../lib/cache';
 import { ProviderChain, type ProviderChainOptions } from '../lib/llm/chain';
+import { estimateTokens } from '../lib/metrics';
 import { createGeminiProvider } from '../lib/llm/gemini';
 import { createMistralProvider } from '../lib/llm/mistral';
 import type { LlmProvider } from '../lib/llm/types';
@@ -48,6 +49,10 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
       throw new ApiError('INVALID_REQUEST', { cause: request.error });
     }
     const { fileName, pages, text } = request.data;
+    const metrics = c.get('metrics');
+    metrics.size('chars', text.length);
+    metrics.size('estTokens', estimateTokens(text));
+    metrics.size('pages', pages);
 
     if (text.length > parseMaxTextChars(c.env.MAX_TEXT_CHARS)) {
       throw new ApiError('TEXT_TOO_LONG');
@@ -73,8 +78,8 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
       return respond(cached.analysis, cached.provider, 'HIT');
     }
 
-    const llm = new ProviderChain(createProviders(c.env), options.chain);
-    const analysis = await analyzeDocument(text, llm, c.req.raw.signal);
+    const llm = new ProviderChain(createProviders(c.env), { ...options.chain, metrics });
+    const analysis = await analyzeDocument(text, llm, { signal: c.req.raw.signal, metrics });
     // Set whenever the chain returned output, which analyzeDocument requires.
     const provider = llm.lastProvider ?? 'unknown';
 

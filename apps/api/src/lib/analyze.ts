@@ -2,6 +2,7 @@ import { LlmAnalysisSchema, llmAnalysisJsonSchema, type LlmAnalysis } from '@pdf
 import { ApiError } from '../errors';
 import type { ProviderChain } from './llm/chain';
 import type { ChatMessage } from './llm/types';
+import type { RequestMetrics } from './metrics';
 import {
   SYSTEM_INSTRUCTION,
   buildCorrectionPrompt,
@@ -13,7 +14,8 @@ import {
 const MAX_REPORTED_ISSUES = 20;
 
 export type ParseResult =
-  { success: true; data: LlmAnalysis } | { success: false; issues: string[] };
+  | { success: true; data: LlmAnalysis }
+  | { success: false; reason: 'invalid_json' | 'invalid_schema'; issues: string[] };
 
 /** Parses and validates raw model output against LlmAnalysisSchema. */
 export function parseLlmOutput(raw: string): ParseResult {
@@ -21,7 +23,7 @@ export function parseLlmOutput(raw: string): ParseResult {
   try {
     json = JSON.parse(raw);
   } catch {
-    return { success: false, issues: ['The response is not valid JSON.'] };
+    return { success: false, reason: 'invalid_json', issues: ['The response is not valid JSON.'] };
   }
 
   const result = LlmAnalysisSchema.safeParse(json);
@@ -32,7 +34,7 @@ export function parseLlmOutput(raw: string): ParseResult {
     const path = issue.path.length > 0 ? issue.path.join('.') : '(root)';
     return `${path}: ${issue.message}`;
   });
-  return { success: false, issues };
+  return { success: false, reason: 'invalid_schema', issues };
 }
 
 export type LlmClient = Pick<ProviderChain, 'generate'>;
@@ -40,6 +42,7 @@ export type LlmClient = Pick<ProviderChain, 'generate'>;
 export interface AnalyzeOptions {
   part?: DocumentPart;
   signal?: AbortSignal;
+  metrics?: RequestMetrics;
 }
 
 /**
@@ -52,7 +55,7 @@ export async function analyzeText(
   llm: LlmClient,
   options: AnalyzeOptions = {},
 ): Promise<LlmAnalysis> {
-  const { part, signal } = options;
+  const { part, signal, metrics } = options;
   const messages: ChatMessage[] = [{ role: 'user', text: buildUserPrompt(text, part) }];
   const request = (isRetry: boolean) =>
     llm.generate({ systemInstruction: SYSTEM_INSTRUCTION, messages }, llmAnalysisJsonSchema, {
@@ -60,8 +63,14 @@ export async function analyzeText(
       isRetry,
     });
 
+  const parse = (raw: string) => {
+    const result = parseLlmOutput(raw);
+    metrics?.setLastParseOutcome(result.success ? 'ok' : result.reason);
+    return result;
+  };
+
   const firstOutput = await request(false);
-  const first = parseLlmOutput(firstOutput);
+  const first = parse(firstOutput);
   if (first.success) {
     return first.data;
   }
@@ -71,7 +80,7 @@ export async function analyzeText(
     { role: 'assistant', text: firstOutput.length > 0 ? firstOutput : '(empty response)' },
     { role: 'user', text: buildCorrectionPrompt(first.issues) },
   );
-  const second = parseLlmOutput(await request(true));
+  const second = parse(await request(true));
   if (second.success) {
     return second.data;
   }
@@ -85,7 +94,7 @@ export async function analyzeText(
 export function analyzeDocument(
   text: string,
   llm: LlmClient,
-  signal?: AbortSignal,
+  options: Omit<AnalyzeOptions, 'part'> = {},
 ): Promise<LlmAnalysis> {
-  return analyzeText(text, llm, { signal });
+  return analyzeText(text, llm, options);
 }

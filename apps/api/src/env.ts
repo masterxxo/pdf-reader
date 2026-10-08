@@ -1,3 +1,5 @@
+import type { RequestMetrics } from './lib/metrics';
+
 export interface Env {
   /** Mistral, the primary provider. */
   MISTRAL_API_KEY: string;
@@ -12,6 +14,8 @@ export interface Env {
   ANALYZE_RATE_LIMITER: RateLimit;
   /** Analysis results keyed by a hash of the prompt and text (see lib/cache.ts). */
   ANALYSIS_CACHE: KVNamespace;
+  /** Set to "1" (only in .dev.vars) to log request timings and LLM attempts. */
+  DEBUG?: string;
 }
 
-export type AppEnv = { Bindings: Env };
+export type AppEnv = { Bindings: Env; Variables: { metrics: RequestMetrics } };

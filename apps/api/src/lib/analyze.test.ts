@@ -47,6 +47,7 @@ describe('parseLlmOutput', () => {
   it('reports invalid JSON', () => {
     expect(parseLlmOutput('{"summary": ')).toEqual({
       success: false,
+      reason: 'invalid_json',
       issues: ['The response is not valid JSON.'],
     });
   });
@@ -55,6 +56,7 @@ describe('parseLlmOutput', () => {
     const invalid = { ...makeLlmAnalysis(), dates: [{ date: '15.10.2026', context: 'x' }] };
     const result = parseLlmOutput(JSON.stringify(invalid));
     expect(result.success).toBe(false);
+    expect(!result.success && result.reason).toBe('invalid_schema');
     expect(!result.success && result.issues[0]).toMatch(/^dates\.0\.date: /);
   });
 });

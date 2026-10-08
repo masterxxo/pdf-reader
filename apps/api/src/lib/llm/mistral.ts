@@ -31,9 +31,11 @@ const MistralResponseSchema = z.object({
             content: z.union([z.string(), z.array(ContentChunkSchema)]).nullish(),
           })
           .optional(),
+        finish_reason: z.string().nullish(),
       }),
     )
     .optional(),
+  usage: z.object({ prompt_tokens: z.number(), completion_tokens: z.number() }).nullish(),
 });
 
 export function createMistralProvider(options: MistralProviderOptions): LlmProvider {
@@ -47,7 +49,7 @@ export function createMistralProvider(options: MistralProviderOptions): LlmProvi
 
   return {
     name: 'mistral',
-    async generate({ systemInstruction, messages }, jsonSchema, signal) {
+    async generate({ systemInstruction, messages }, jsonSchema, callOptions = {}) {
       const body = {
         model,
         temperature,
@@ -70,8 +72,8 @@ export function createMistralProvider(options: MistralProviderOptions): LlmProvi
         url: MISTRAL_CHAT_COMPLETIONS_URL,
         headers: { Authorization: `Bearer ${apiKey}` },
         body,
-        timeoutMs,
-        signal,
+        timeoutMs: callOptions.timeoutMs ?? timeoutMs,
+        signal: callOptions.signal,
         fetch: fetchImpl,
       });
 
@@ -80,15 +82,24 @@ export function createMistralProvider(options: MistralProviderOptions): LlmProvi
         throw new LlmProviderError('LLM_UNAVAILABLE', { canFallback: true, cause: parsed.error });
       }
 
+      const choice = parsed.data.choices?.[0];
+      const { usage } = parsed.data;
       // Missing content yields "", which the caller treats as invalid output.
-      const content = parsed.data.choices?.[0]?.message?.content ?? '';
-      if (typeof content === 'string') {
-        return content;
-      }
-      return content
-        .filter((chunk) => chunk.type === 'text')
-        .map((chunk) => chunk.text ?? '')
-        .join('');
+      const content = choice?.message?.content ?? '';
+      const text =
+        typeof content === 'string'
+          ? content
+          : content
+              .filter((chunk) => chunk.type === 'text')
+              .map((chunk) => chunk.text ?? '')
+              .join('');
+      return {
+        text,
+        usage: usage
+          ? { inputTokens: usage.prompt_tokens, outputTokens: usage.completion_tokens }
+          : undefined,
+        finishReason: choice?.finish_reason ?? undefined,
+      };
     },
   };
 }

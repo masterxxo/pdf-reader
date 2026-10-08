@@ -14,7 +14,7 @@ function fakeProvider(name: string, steps: Step[]) {
     if (step === undefined) {
       throw new Error('No step configured');
     }
-    return typeof step === 'string' ? Promise.resolve(step) : Promise.reject(step);
+    return typeof step === 'string' ? Promise.resolve({ text: step }) : Promise.reject(step);
   });
   return { name, generate };
 }

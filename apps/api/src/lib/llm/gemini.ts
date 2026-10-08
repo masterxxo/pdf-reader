@@ -30,8 +30,16 @@ const GeminiResponseSchema = z.object({
               .optional(),
           })
           .optional(),
+        finishReason: z.string().optional(),
       }),
     )
+    .optional(),
+  usageMetadata: z
+    .object({
+      promptTokenCount: z.number().optional(),
+      candidatesTokenCount: z.number().optional(),
+      thoughtsTokenCount: z.number().optional(),
+    })
     .optional(),
 });
 
@@ -47,7 +55,7 @@ export function createGeminiProvider(options: GeminiProviderOptions): LlmProvide
 
   return {
     name: 'gemini',
-    async generate({ systemInstruction, messages }, jsonSchema, signal) {
+    async generate({ systemInstruction, messages }, jsonSchema, callOptions = {}) {
       const body = {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: messages.map((message) => ({
@@ -67,8 +75,8 @@ export function createGeminiProvider(options: GeminiProviderOptions): LlmProvide
         url,
         headers: { 'x-goog-api-key': apiKey },
         body,
-        timeoutMs,
-        signal,
+        timeoutMs: callOptions.timeoutMs ?? timeoutMs,
+        signal: callOptions.signal,
         fetch: fetchImpl,
       });
 
@@ -77,12 +85,25 @@ export function createGeminiProvider(options: GeminiProviderOptions): LlmProvide
         throw new LlmProviderError('LLM_UNAVAILABLE', { canFallback: true, cause: parsed.error });
       }
 
+      const candidate = parsed.data.candidates?.[0];
+      const usage = parsed.data.usageMetadata;
       // A blocked or empty candidate yields "", which the caller treats as invalid output.
-      const parts = parsed.data.candidates?.[0]?.content?.parts ?? [];
-      return parts
+      const parts = candidate?.content?.parts ?? [];
+      const text = parts
         .filter((part) => part.thought !== true)
         .map((part) => part.text ?? '')
         .join('');
+      return {
+        text,
+        usage: usage
+          ? {
+              inputTokens: usage.promptTokenCount ?? 0,
+              // Thinking tokens are billed and generated like output tokens.
+              outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
+            }
+          : undefined,
+        finishReason: candidate?.finishReason,
+      };
     },
   };
 }

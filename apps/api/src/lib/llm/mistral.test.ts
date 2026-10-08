@@ -36,7 +36,9 @@ describe('createMistralProvider', () => {
       Promise.resolve(mistralResponse('{"a":1}')),
     );
 
-    await expect(createProvider(fetchMock).generate(PROMPT, SCHEMA)).resolves.toBe('{"a":1}');
+    await expect(createProvider(fetchMock).generate(PROMPT, SCHEMA)).resolves.toMatchObject({
+      text: '{"a":1}',
+    });
 
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(String(url)).toBe('https://api.mistral.ai/v1/chat/completions');
@@ -77,14 +79,18 @@ describe('createMistralProvider', () => {
       Promise.resolve(new Response(JSON.stringify(body))),
     );
 
-    await expect(createProvider(fetchMock).generate(PROMPT, SCHEMA)).resolves.toBe('{"a":1}');
+    await expect(createProvider(fetchMock).generate(PROMPT, SCHEMA)).resolves.toMatchObject({
+      text: '{"a":1}',
+    });
   });
 
   it('returns "" for a response without content', async () => {
     const fetchMock: FetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(new Response(JSON.stringify({ choices: [] }))),
     );
-    await expect(createProvider(fetchMock).generate(PROMPT, SCHEMA)).resolves.toBe('');
+    await expect(createProvider(fetchMock).generate(PROMPT, SCHEMA)).resolves.toMatchObject({
+      text: '',
+    });
   });
 
   it('reports 429 as a rate limit that allows fallback, with Retry-After', async () => {
@@ -139,7 +145,7 @@ describe('createMistralProvider', () => {
     );
 
     const error = await providerError(
-      createProvider(fetchMock).generate(PROMPT, SCHEMA, controller.signal),
+      createProvider(fetchMock).generate(PROMPT, SCHEMA, { signal: controller.signal }),
     );
     expect(error.canFallback).toBe(false);
   });

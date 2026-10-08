@@ -1,10 +1,19 @@
 import { ApiError } from '../../errors';
-import { LlmProviderError, type JsonSchema, type LlmPrompt, type LlmProvider } from './types';
+import { outcomeFromErrorCode, type RequestMetrics } from '../metrics';
+import {
+  LlmProviderError,
+  type JsonSchema,
+  type LlmOutput,
+  type LlmPrompt,
+  type LlmProvider,
+} from './types';
 
 export interface GenerateOptions {
   signal?: AbortSignal;
   /** True for the correction attempt that follows invalid output. */
   isRetry?: boolean;
+  /** Name of the call in metrics, e.g. "analyze" or "retry". */
+  label?: string;
 }
 
 export interface ProviderChainOptions {
@@ -13,6 +22,8 @@ export interface ProviderChainOptions {
   /** Wait used when a 429 response has no Retry-After header. */
   defaultRetryWaitMs?: number;
   sleep?: (ms: number) => Promise<void>;
+  /** Records every provider call (duration, outcome, token usage). */
+  metrics?: RequestMetrics;
 }
 
 const DEFAULT_MAX_RETRY_WAIT_MS = 2_000;
@@ -34,6 +45,7 @@ export class ProviderChain {
   readonly #maxRetryWaitMs: number;
   readonly #defaultRetryWaitMs: number;
   readonly #sleep: (ms: number) => Promise<void>;
+  readonly #metrics: RequestMetrics | undefined;
   /** Index of the provider that produced the last output. */
   #current = 0;
   #lastProvider: string | undefined;
@@ -46,6 +58,7 @@ export class ProviderChain {
     this.#maxRetryWaitMs = options.maxRetryWaitMs ?? DEFAULT_MAX_RETRY_WAIT_MS;
     this.#defaultRetryWaitMs = options.defaultRetryWaitMs ?? DEFAULT_RETRY_WAIT_MS;
     this.#sleep = options.sleep ?? defaultSleep;
+    this.#metrics = options.metrics;
   }
 
   /** Name of the provider that produced the last output, if any. */
@@ -58,7 +71,7 @@ export class ProviderChain {
     jsonSchema: JsonSchema,
     options: GenerateOptions = {},
   ): Promise<string> {
-    const { signal, isRetry = false } = options;
+    const { signal, isRetry = false, label = isRetry ? 'retry' : 'analyze' } = options;
 
     for (let index = this.#current; index < this.#providers.length; index++) {
       const provider = this.#providers[index];
@@ -66,10 +79,10 @@ export class ProviderChain {
         break;
       }
       try {
-        const output = await this.#call(provider, prompt, jsonSchema, signal, isRetry);
+        const output = await this.#call(provider, prompt, jsonSchema, signal, isRetry, label);
         this.#current = index;
         this.#lastProvider = provider.name;
-        return output;
+        return output.text;
       } catch (error) {
         const isLast = index === this.#providers.length - 1;
         if (isLast || !(error instanceof LlmProviderError) || !error.canFallback) {
@@ -91,9 +104,10 @@ export class ProviderChain {
     jsonSchema: JsonSchema,
     signal: AbortSignal | undefined,
     isRetry: boolean,
-  ): Promise<string> {
+    label: string,
+  ): Promise<LlmOutput> {
     try {
-      return await provider.generate(prompt, jsonSchema, signal);
+      return await this.#timedCall(provider, prompt, jsonSchema, signal, label);
     } catch (error) {
       if (!isRetry || !(error instanceof LlmProviderError) || error.code !== 'RATE_LIMITED') {
         throw error;
@@ -104,7 +118,39 @@ export class ProviderChain {
         throw error;
       }
       await this.#sleep(waitMs);
-      return provider.generate(prompt, jsonSchema, signal);
+      return this.#timedCall(provider, prompt, jsonSchema, signal, label);
+    }
+  }
+
+  async #timedCall(
+    provider: LlmProvider,
+    prompt: LlmPrompt,
+    jsonSchema: JsonSchema,
+    signal: AbortSignal | undefined,
+    label: string,
+  ): Promise<LlmOutput> {
+    const metrics = this.#metrics;
+    const startedAt = metrics?.now() ?? 0;
+    const elapsed = () => (metrics ? metrics.now() - startedAt : 0);
+    try {
+      const output = await provider.generate(prompt, jsonSchema, { signal });
+      metrics?.recordAttempt({
+        provider: provider.name,
+        label,
+        durationMs: elapsed(),
+        outcome: 'ok',
+        usage: output.usage,
+        finishReason: output.finishReason,
+      });
+      return output;
+    } catch (error) {
+      metrics?.recordAttempt({
+        provider: provider.name,
+        label,
+        durationMs: elapsed(),
+        outcome: error instanceof ApiError ? outcomeFromErrorCode(error.code) : 'unavailable',
+      });
+      throw error;
     }
   }
 }
