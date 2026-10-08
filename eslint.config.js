@@ -25,7 +25,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['apps/web/*.{js,ts}', '*.js'],
+    files: ['apps/web/*.{js,ts}', '*.js', 'scripts/**/*.{js,mjs}'],
     languageOptions: {
       globals: globals.node,
     },

@@ -5,6 +5,10 @@ compatibility_date = "2026-10-01"
 workers_dev = true
 preview_urls = false
 
+[dev]
+# Fixed so the web app (VITE_API_URL) and scripts/dev.mjs can rely on it.
+port = 8787
+
 # Secrets (e.g. LLM_API_KEY) are set via `wrangler secret put`, never committed.
 # For local development copy .dev.vars.example to .dev.vars.
 
