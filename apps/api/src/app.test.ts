@@ -2,7 +2,9 @@ import { ApiErrorResponseSchema } from '@pdf-insight/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_BODY_BYTES, createApp } from './app';
 import type { Env } from './env';
+import { CACHE_TTL_SECONDS } from './lib/cache';
 import {
+  createMemoryKv,
   geminiResponse,
   isGeminiUrl,
   isMistralUrl,
@@ -177,6 +179,106 @@ describe('POST /analyze', () => {
     const response = await postAnalyze(validRequest, env);
     expect(response.status).toBe(500);
     expect(await errorCode(response)).toBe('INTERNAL');
+  });
+});
+
+describe('analysis cache', () => {
+  function envWithCache(overrides: Partial<Env> = {}) {
+    const cache = createMemoryKv();
+    return { env: makeEnv({ ANALYSIS_CACHE: cache.kv, ...overrides }), cache };
+  }
+
+  it('stores a miss and serves the same text from the cache with the new fileName and pages', async () => {
+    const { env, cache } = envWithCache();
+
+    const first = await postAnalyze(validRequest, env);
+    expect(first.status).toBe(200);
+    expect(first.headers.get('X-Cache')).toBe('MISS');
+    expect(first.headers.get('X-LLM-Provider')).toBe('mistral');
+
+    const second = await postAnalyze({ ...validRequest, fileName: 'kopia.pdf', pages: 3 }, env);
+    expect(second.status).toBe(200);
+    expect(second.headers.get('X-Cache')).toBe('HIT');
+    expect(second.headers.get('X-LLM-Provider')).toBe('mistral');
+    expect(second.headers.get('Access-Control-Expose-Headers')).toContain('X-Cache');
+    expect(await second.json()).toEqual({
+      ...makeLlmAnalysis(),
+      document: { ...makeLlmAnalysis().document, fileName: 'kopia.pdf', pages: 3 },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(cache.entries.size).toBe(1);
+  });
+
+  it('stores only the model output, with a 7-day TTL and the provider in metadata', async () => {
+    const { env, cache } = envWithCache();
+    await postAnalyze(validRequest, env);
+
+    const [key, entry] = [...cache.entries][0] ?? [];
+    expect(key).toMatch(/^analysis:v1:[0-9a-f]{64}$/);
+    expect(JSON.parse(entry?.value ?? '')).toEqual(makeLlmAnalysis());
+    expect(entry?.metadata).toEqual({ provider: 'mistral' });
+    expect(entry?.expirationTtl).toBe(CACHE_TTL_SECONDS);
+    expect(CACHE_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
+  });
+
+  it('remembers the fallback provider of a cached result', async () => {
+    const { env } = envWithCache({ MISTRAL_API_KEY: '' });
+    await postAnalyze(validRequest, env);
+
+    const hit = await postAnalyze(validRequest, makeEnv({ ANALYSIS_CACHE: env.ANALYSIS_CACHE }));
+    expect(hit.headers.get('X-Cache')).toBe('HIT');
+    expect(hit.headers.get('X-LLM-Provider')).toBe('gemini');
+  });
+
+  it('does not depend on the model', async () => {
+    const { env } = envWithCache();
+    await postAnalyze(validRequest, env);
+
+    const hit = await postAnalyze(validRequest, { ...env, MISTRAL_MODEL: 'other-model' });
+    expect(hit.headers.get('X-Cache')).toBe('HIT');
+  });
+
+  it('misses for a different text', async () => {
+    const { env, cache } = envWithCache();
+    await postAnalyze(validRequest, env);
+
+    const other = await postAnalyze({ ...validRequest, text: 'Inny dokument' }, env);
+    expect(other.headers.get('X-Cache')).toBe('MISS');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(cache.entries.size).toBe(2);
+  });
+
+  it('treats an entry that no longer matches the schema as a miss', async () => {
+    const { env, cache } = envWithCache();
+    await postAnalyze(validRequest, env);
+    for (const entry of cache.entries.values()) {
+      entry.value = JSON.stringify({ summary: 'stary format' });
+    }
+
+    const response = await postAnalyze(validRequest, env);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-Cache')).toBe('MISS');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('still answers when KV fails', async () => {
+    const broken = {
+      getWithMetadata: () => Promise.reject(new Error('KV down')),
+      put: () => Promise.reject(new Error('KV down')),
+    } as unknown as KVNamespace;
+
+    const response = await postAnalyze(validRequest, makeEnv({ ANALYSIS_CACHE: broken }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-Cache')).toBe('MISS');
+  });
+
+  it('does not cache errors', async () => {
+    const { env, cache } = envWithCache();
+    fetchMock.mockImplementation(() => Promise.resolve(mistralResponse('nie JSON')));
+
+    const response = await postAnalyze(validRequest, env);
+    expect(response.status).toBe(502);
+    expect(cache.entries.size).toBe(0);
   });
 });
 
