@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
-import { ACCEPTED_MIME_TYPE, MAX_FILE_SIZE_MB } from '../lib/constants';
+import { ACCEPTED_MIME_TYPE, MAX_FILE_SIZE_MB } from '@pdf-insight/shared';
 
 export function PdfDropzone() {
   const inputRef = useRef<HTMLInputElement>(null);
