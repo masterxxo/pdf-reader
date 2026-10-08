@@ -1,8 +1,12 @@
 import type { ApiErrorCode } from '@pdf-insight/shared';
 import type { LlmUsage } from './llm/types';
 
-/** Rough token estimate for budgeting; Mistral averages ~3.5 chars per token on Polish text. */
-export const CHARS_PER_TOKEN = 3.5;
+/**
+ * Rough token estimate for budgeting. Measured with Mistral's tokenizer on
+ * dense Polish text: ~2.74 characters per token (digits and diacritics split
+ * into many tokens); rounded down to err on the side of more tokens.
+ */
+export const CHARS_PER_TOKEN = 2.7;
 
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);

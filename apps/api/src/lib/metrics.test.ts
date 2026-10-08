@@ -69,6 +69,6 @@ describe('RequestMetrics', () => {
 
   it('estimates tokens from the text length', () => {
     expect(estimateTokens('')).toBe(0);
-    expect(estimateTokens('a'.repeat(35))).toBe(10);
+    expect(estimateTokens('a'.repeat(27))).toBe(10);
   });
 });

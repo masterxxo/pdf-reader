@@ -9,6 +9,7 @@ import { REQUEST_BUDGET_MS, TimeBudget } from '../lib/budget';
 import { analysisCacheKey, readCachedAnalysis, writeCachedAnalysis } from '../lib/cache';
 import { ProviderChain, type ProviderChainOptions } from '../lib/llm/chain';
 import { estimateTokens } from '../lib/metrics';
+import { normalizeText } from '../lib/normalizeText';
 import { createGeminiProvider } from '../lib/llm/gemini';
 import { createMistralProvider } from '../lib/llm/mistral';
 import type { LlmProvider } from '../lib/llm/types';
@@ -49,11 +50,13 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
     if (!request.success) {
       throw new ApiError('INVALID_REQUEST', { cause: request.error });
     }
-    const { fileName, pages, text } = request.data;
+    const { fileName, pages } = request.data;
+    const text = normalizeText(request.data.text);
     const metrics = c.get('metrics');
-    metrics.size('chars', text.length);
-    metrics.size('estTokens', estimateTokens(text));
     metrics.size('pages', pages);
+    metrics.size('chars', request.data.text.length);
+    metrics.size('normalizedChars', text.length);
+    metrics.size('estTokens', estimateTokens(text));
 
     if (text.length > parseMaxTextChars(c.env.MAX_TEXT_CHARS)) {
       throw new ApiError('TEXT_TOO_LONG');

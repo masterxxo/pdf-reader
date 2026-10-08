@@ -29,8 +29,7 @@ OUTPUT RULES
 - dates: dates that appear in the document as YYYY-MM-DD. Skip dates that are incomplete (e.g. no day) or ambiguous. At most ${String(LIST_LIMITS.dates)} dates.
 - context (in amounts and dates): what the value refers to, at most 8 words.
 - keywords: at most ${String(LIST_LIMITS.keywords)} short keywords or phrases characteristic of the document.
-- When a list would exceed its limit, keep only the most important items (e.g. totals, contract values, deadlines, the main parties), most important first. Never list the same item twice.
-- Lines like "--- Strona N ---" are page markers added by the system, not part of the document.`;
+- When a list would exceed its limit, keep only the most important items (e.g. totals, contract values, deadlines, the main parties), most important first. Never list the same item twice.`;
 
 /** Position of a chunk within a longer document, for chunked analysis. */
 export interface DocumentPart {

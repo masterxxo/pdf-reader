@@ -65,6 +65,19 @@ describe('POST /analyze', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('sends normalized text (no page markers or page numbers) to the model', async () => {
+    const text = '--- Strona 1 ---\nFaktura   VAT\n1\n\n--- Strona 2 ---\nRazem: 100 zł\n2';
+    const response = await postAnalyze({ ...validRequest, text });
+
+    expect(response.status).toBe(200);
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      messages: { role: string; content: string }[];
+    };
+    const prompt = body.messages.find((message) => message.role === 'user')?.content ?? '';
+    expect(prompt).toContain('<document>\nFaktura VAT\n\nRazem: 100 zł\n</document>');
+    expect(response.headers.get('Server-Timing')).toMatch(/chars=\d+ normalizedChars=\d+/);
+  });
+
   it('falls back to Gemini when Mistral is rate limited', async () => {
     fetchMock.mockImplementation((url) =>
       Promise.resolve(
