@@ -62,3 +62,15 @@ export const AnalysisResultSchema = LlmAnalysisSchema.extend({
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
 export type LlmAnalysis = z.infer<typeof LlmAnalysisSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
+
+/**
+ * Body of POST /analyze. The maximum text length is enforced by the API
+ * (configurable there), so it is not part of this schema.
+ */
+export const AnalyzeRequestSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  pages: z.number().int().positive(),
+  text: z.string().refine((text) => text.trim().length > 0, 'Text must not be empty'),
+});
+
+export type AnalyzeRequest = z.infer<typeof AnalyzeRequestSchema>;

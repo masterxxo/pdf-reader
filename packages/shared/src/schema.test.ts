@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AnalysisResultSchema,
+  AnalyzeRequestSchema,
   CurrencySchema,
   IsoDateSchema,
   LanguageSchema,
@@ -195,5 +196,31 @@ describe('LanguageSchema', () => {
 
   it.each(['pol', 'PL', 'p', 'pl-PL', ''])('rejects %s', (language) => {
     expect(LanguageSchema.safeParse(language).success).toBe(false);
+  });
+});
+
+describe('AnalyzeRequestSchema', () => {
+  const validRequest = { fileName: 'umowa.pdf', pages: 3, text: '--- Strona 1 ---\nTreść' };
+
+  it('accepts a valid request', () => {
+    expect(AnalyzeRequestSchema.parse(validRequest)).toEqual(validRequest);
+  });
+
+  it.each(['fileName', 'pages', 'text'])('rejects a request missing "%s"', (field) => {
+    expect(AnalyzeRequestSchema.safeParse(withoutKey(validRequest, field)).success).toBe(false);
+  });
+
+  it.each([0, -2, 1.5, '3'])('rejects pages = %s', (pages) => {
+    expect(AnalyzeRequestSchema.safeParse({ ...validRequest, pages }).success).toBe(false);
+  });
+
+  it.each(['', '   \n\t'])('rejects empty or whitespace-only text %j', (text) => {
+    expect(AnalyzeRequestSchema.safeParse({ ...validRequest, text }).success).toBe(false);
+  });
+
+  it('rejects an empty or overly long file name', () => {
+    expect(AnalyzeRequestSchema.safeParse({ ...validRequest, fileName: ' ' }).success).toBe(false);
+    const fileName = `${'a'.repeat(252)}.pdf`;
+    expect(AnalyzeRequestSchema.safeParse({ ...validRequest, fileName }).success).toBe(false);
   });
 });
