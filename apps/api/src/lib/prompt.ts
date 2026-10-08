@@ -1,3 +1,5 @@
+import { LIST_LIMITS } from '@pdf-insight/shared';
+
 /**
  * Prompt construction for document analysis. Everything here is pure, so it can
  * be unit-tested and reused for analyzing chunks of long documents.
@@ -21,11 +23,13 @@ OUTPUT RULES
 - document.title: the document's own title or heading as written in it, otherwise null.
 - document.date: the main date of the document (e.g. issue or signing date) as YYYY-MM-DD, otherwise null.
 - summary: 3–5 sentences describing what the document is and its most important content. No information that is not in the text.
-- keyPoints: 3–7 short, concrete points. Fewer only if the document is very short.
-- entities.organizations / entities.people: names exactly as written in the document, without duplicates.
-- amounts: monetary amounts only. value is a plain number with a dot as the decimal separator and no thousands separators (e.g. "12 500,00 zł" → 12500). currency is an ISO 4217 code (e.g. "zł" → "PLN", "€" → "EUR", "$" → "USD"); skip amounts whose currency cannot be determined from the document. context briefly says what the amount refers to.
-- dates: dates that appear in the document as YYYY-MM-DD, each with a short context. Skip dates that are incomplete (e.g. no day) or ambiguous.
-- keywords: up to 10 short keywords or phrases characteristic of the document.
+- keyPoints: 3–${String(LIST_LIMITS.keyPoints)} short, concrete points, each one sentence of at most 15 words. Fewer only if the document is very short.
+- entities.organizations / entities.people: names exactly as written in the document, without duplicates. At most ${String(LIST_LIMITS.organizations)} organizations and ${String(LIST_LIMITS.people)} people.
+- amounts: monetary amounts only. value is a plain number with a dot as the decimal separator and no thousands separators (e.g. "12 500,00 zł" → 12500). currency is an ISO 4217 code (e.g. "zł" → "PLN", "€" → "EUR", "$" → "USD"); skip amounts whose currency cannot be determined from the document. At most ${String(LIST_LIMITS.amounts)} amounts.
+- dates: dates that appear in the document as YYYY-MM-DD. Skip dates that are incomplete (e.g. no day) or ambiguous. At most ${String(LIST_LIMITS.dates)} dates.
+- context (in amounts and dates): what the value refers to, at most 8 words.
+- keywords: at most ${String(LIST_LIMITS.keywords)} short keywords or phrases characteristic of the document.
+- When a list would exceed its limit, keep only the most important items (e.g. totals, contract values, deadlines, the main parties), most important first. Never list the same item twice.
 - Lines like "--- Strona N ---" are page markers added by the system, not part of the document.`;
 
 /** Position of a chunk within a longer document, for chunked analysis. */

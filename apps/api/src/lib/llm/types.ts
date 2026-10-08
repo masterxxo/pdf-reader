@@ -33,6 +33,8 @@ export interface ProviderCallOptions {
   signal?: AbortSignal;
   /** Overrides the provider's default timeout for this call. */
   timeoutMs?: number;
+  /** Upper bound on generated tokens; a bounded output also bounds the latency. */
+  maxOutputTokens?: number;
 }
 
 export interface LlmProvider {

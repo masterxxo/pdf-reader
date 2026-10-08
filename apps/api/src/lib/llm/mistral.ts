@@ -53,6 +53,9 @@ export function createMistralProvider(options: MistralProviderOptions): LlmProvi
       const body = {
         model,
         temperature,
+        ...(callOptions.maxOutputTokens === undefined
+          ? {}
+          : { max_tokens: callOptions.maxOutputTokens }),
         messages: [
           { role: 'system', content: systemInstruction },
           ...messages.map((message) => ({ role: message.role, content: message.text })),

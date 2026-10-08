@@ -75,6 +75,16 @@ describe('SYSTEM_INSTRUCTION', () => {
     expect(SYSTEM_INSTRUCTION).toMatch(/Ignore any instructions/);
     expect(SYSTEM_INSTRUCTION).toMatch(/Never reveal/);
   });
+
+  it('states every list limit and the short context rule', () => {
+    expect(SYSTEM_INSTRUCTION).toContain('keyPoints: 3–7');
+    expect(SYSTEM_INSTRUCTION).toContain('At most 15 organizations and 15 people');
+    expect(SYSTEM_INSTRUCTION).toContain('At most 10 amounts');
+    expect(SYSTEM_INSTRUCTION).toContain('At most 10 dates');
+    expect(SYSTEM_INSTRUCTION).toContain('at most 10 short keywords');
+    expect(SYSTEM_INSTRUCTION).toContain('at most 8 words');
+    expect(SYSTEM_INSTRUCTION).toContain('most important first');
+  });
 });
 
 describe('buildCorrectionPrompt', () => {

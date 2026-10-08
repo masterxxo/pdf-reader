@@ -15,6 +15,7 @@ export interface GenerateOptions {
   isRetry?: boolean;
   /** Name of the call in metrics, e.g. "analyze" or "retry". */
   label?: string;
+  maxOutputTokens?: number;
 }
 
 export interface ProviderChainOptions {
@@ -31,6 +32,12 @@ export interface ProviderChainOptions {
    * provider uses its own default timeout.
    */
   budget?: TimeBudget;
+}
+
+interface CallOptions {
+  signal: AbortSignal | undefined;
+  label: string;
+  maxOutputTokens: number | undefined;
 }
 
 const DEFAULT_MAX_RETRY_WAIT_MS = 2_000;
@@ -80,7 +87,13 @@ export class ProviderChain {
     jsonSchema: JsonSchema,
     options: GenerateOptions = {},
   ): Promise<string> {
-    const { signal, isRetry = false, label = isRetry ? 'retry' : 'analyze' } = options;
+    const {
+      signal,
+      isRetry = false,
+      label = isRetry ? 'retry' : 'analyze',
+      maxOutputTokens,
+    } = options;
+    const call: CallOptions = { signal, label, maxOutputTokens };
 
     for (let index = this.#current; index < this.#providers.length; index++) {
       const provider = this.#providers[index];
@@ -88,7 +101,7 @@ export class ProviderChain {
         break;
       }
       try {
-        const output = await this.#call(provider, prompt, jsonSchema, signal, isRetry, label);
+        const output = await this.#call(provider, prompt, jsonSchema, call, isRetry);
         this.#current = index;
         this.#lastProvider = provider.name;
         return output.text;
@@ -111,12 +124,11 @@ export class ProviderChain {
     provider: LlmProvider,
     prompt: LlmPrompt,
     jsonSchema: JsonSchema,
-    signal: AbortSignal | undefined,
+    call: CallOptions,
     isRetry: boolean,
-    label: string,
   ): Promise<LlmOutput> {
     try {
-      return await this.#timedCall(provider, prompt, jsonSchema, signal, label);
+      return await this.#timedCall(provider, prompt, jsonSchema, call);
     } catch (error) {
       if (!isRetry || !(error instanceof LlmProviderError) || error.code !== 'RATE_LIMITED') {
         throw error;
@@ -127,7 +139,7 @@ export class ProviderChain {
         throw error;
       }
       await this.#sleep(waitMs);
-      return this.#timedCall(provider, prompt, jsonSchema, signal, label);
+      return this.#timedCall(provider, prompt, jsonSchema, call);
     }
   }
 
@@ -135,8 +147,7 @@ export class ProviderChain {
     provider: LlmProvider,
     prompt: LlmPrompt,
     jsonSchema: JsonSchema,
-    signal: AbortSignal | undefined,
-    label: string,
+    { signal, label, maxOutputTokens }: CallOptions,
   ): Promise<LlmOutput> {
     const metrics = this.#metrics;
     let timeoutMs: number | undefined;
@@ -154,7 +165,11 @@ export class ProviderChain {
     const startedAt = metrics?.now() ?? 0;
     const elapsed = () => (metrics ? metrics.now() - startedAt : 0);
     try {
-      const output = await provider.generate(prompt, jsonSchema, { signal, timeoutMs });
+      const output = await provider.generate(prompt, jsonSchema, {
+        signal,
+        timeoutMs,
+        maxOutputTokens,
+      });
       metrics?.recordAttempt({
         provider: provider.name,
         label,

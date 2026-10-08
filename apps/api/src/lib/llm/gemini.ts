@@ -55,6 +55,8 @@ export function createGeminiProvider(options: GeminiProviderOptions): LlmProvide
 
   return {
     name: 'gemini',
+    // callOptions.maxOutputTokens is deliberately not sent: on Gemini it also
+    // counts thinking tokens, so a cap sized for the JSON could cut it off.
     async generate({ systemInstruction, messages }, jsonSchema, callOptions = {}) {
       const body = {
         systemInstruction: { parts: [{ text: systemInstruction }] },

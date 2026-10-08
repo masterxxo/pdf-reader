@@ -1,4 +1,9 @@
-import { LlmAnalysisSchema, llmAnalysisJsonSchema, type LlmAnalysis } from '@pdf-insight/shared';
+import {
+  LIST_LIMITS,
+  LlmAnalysisSchema,
+  llmAnalysisJsonSchema,
+  type LlmAnalysis,
+} from '@pdf-insight/shared';
 import { ApiError } from '../errors';
 import type { ProviderChain } from './llm/chain';
 import type { ChatMessage } from './llm/types';
@@ -10,12 +15,49 @@ import {
   type DocumentPart,
 } from './prompt';
 
+/**
+ * Generous for a result within LIST_LIMITS (~1,800 tokens measured on a dense
+ * 12-page Polish report); only a runaway response reaches it.
+ */
+export const MAX_OUTPUT_TOKENS = 3_000;
+
 /** Limits how many validation issues are sent back to the model. */
 const MAX_REPORTED_ISSUES = 20;
 
 export type ParseResult =
   | { success: true; data: LlmAnalysis }
   | { success: false; reason: 'invalid_json' | 'invalid_schema'; issues: string[] };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function truncateList(record: Record<string, unknown>, key: string, limit: number): void {
+  const list = record[key];
+  if (Array.isArray(list) && list.length > limit) {
+    record[key] = list.slice(0, limit);
+  }
+}
+
+/**
+ * Drops list items beyond LIST_LIMITS. The model is asked for its most
+ * important items first, so a slightly too long list is still a usable result
+ * and does not need a slow correction round trip. Mutates `json`.
+ */
+export function truncateLists(json: unknown): unknown {
+  if (!isRecord(json)) {
+    return json;
+  }
+  truncateList(json, 'keyPoints', LIST_LIMITS.keyPoints);
+  truncateList(json, 'amounts', LIST_LIMITS.amounts);
+  truncateList(json, 'dates', LIST_LIMITS.dates);
+  truncateList(json, 'keywords', LIST_LIMITS.keywords);
+  if (isRecord(json['entities'])) {
+    truncateList(json['entities'], 'organizations', LIST_LIMITS.organizations);
+    truncateList(json['entities'], 'people', LIST_LIMITS.people);
+  }
+  return json;
+}
 
 /** Parses and validates raw model output against LlmAnalysisSchema. */
 export function parseLlmOutput(raw: string): ParseResult {
@@ -26,7 +68,7 @@ export function parseLlmOutput(raw: string): ParseResult {
     return { success: false, reason: 'invalid_json', issues: ['The response is not valid JSON.'] };
   }
 
-  const result = LlmAnalysisSchema.safeParse(json);
+  const result = LlmAnalysisSchema.safeParse(truncateLists(json));
   if (result.success) {
     return { success: true, data: result.data };
   }
@@ -61,6 +103,7 @@ export async function analyzeText(
     llm.generate({ systemInstruction: SYSTEM_INSTRUCTION, messages }, llmAnalysisJsonSchema, {
       signal,
       isRetry,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
 
   const parse = (raw: string) => {

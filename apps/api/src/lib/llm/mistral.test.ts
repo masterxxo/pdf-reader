@@ -61,6 +61,28 @@ describe('createMistralProvider', () => {
     expect(String(init?.body)).not.toContain('reasoning_effort');
   });
 
+  it('sends max_tokens only when given and reports usage and finish reason', async () => {
+    const body = {
+      choices: [{ message: { content: '{}' }, finish_reason: 'length' }],
+      usage: { prompt_tokens: 1200, completion_tokens: 3000, total_tokens: 4200 },
+    };
+    const fetchMock: FetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(JSON.stringify(body))),
+    );
+    const provider = createProvider(fetchMock);
+
+    await expect(provider.generate(PROMPT, SCHEMA, { maxOutputTokens: 3000 })).resolves.toEqual({
+      text: '{}',
+      usage: { inputTokens: 1200, outputTokens: 3000 },
+      finishReason: 'length',
+    });
+    await provider.generate(PROMPT, SCHEMA);
+
+    const sent = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)) as object);
+    expect(sent[0]).toHaveProperty('max_tokens', 3000);
+    expect(sent[1]).not.toHaveProperty('max_tokens');
+  });
+
   it('joins text chunks and skips thinking chunks', async () => {
     const body = {
       choices: [

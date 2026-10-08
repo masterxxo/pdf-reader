@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../errors';
 import { geminiResponse, makeLlmAnalysis } from '../test/fixtures';
-import { analyzeText, parseLlmOutput } from './analyze';
+import { LIST_LIMITS } from '@pdf-insight/shared';
+import { analyzeText, parseLlmOutput, truncateLists } from './analyze';
 import { ProviderChain } from './llm/chain';
 import { createGeminiProvider } from './llm/gemini';
 
@@ -58,6 +59,33 @@ describe('parseLlmOutput', () => {
     expect(result.success).toBe(false);
     expect(!result.success && result.reason).toBe('invalid_schema');
     expect(!result.success && result.issues[0]).toMatch(/^dates\.0\.date: /);
+  });
+});
+
+describe('truncateLists', () => {
+  it('drops items beyond the list limits, keeping the first (most important) ones', () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => `x${String(i)}`);
+    const analysis = {
+      ...makeLlmAnalysis(),
+      keyPoints: many(9),
+      entities: { organizations: many(20), people: many(16) },
+      keywords: many(12),
+    };
+    const result = parseLlmOutput(JSON.stringify(analysis));
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.keyPoints).toEqual(many(LIST_LIMITS.keyPoints));
+      expect(result.data.entities.organizations).toHaveLength(LIST_LIMITS.organizations);
+      expect(result.data.entities.people).toHaveLength(LIST_LIMITS.people);
+      expect(result.data.keywords).toEqual(many(LIST_LIMITS.keywords));
+    }
+  });
+
+  it('leaves non-objects and lists within limits untouched', () => {
+    expect(truncateLists('x')).toBe('x');
+    expect(truncateLists(null)).toBeNull();
+    expect(truncateLists(makeLlmAnalysis())).toEqual(makeLlmAnalysis());
   });
 });
 
