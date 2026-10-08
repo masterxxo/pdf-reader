@@ -5,6 +5,7 @@ import { AnalysisError, isRetryableError } from './api/errors';
 import { AnalysisResultView } from './components/AnalysisResultView';
 import { AppHeader } from './components/AppHeader';
 import { ErrorMessage } from './components/ErrorMessage';
+import { JsonPreview } from './components/JsonPreview';
 import { PdfDropzone } from './components/PdfDropzone';
 import { extractPdfText } from './lib/pdf';
 import { toPdfExtractionError } from './lib/pdfErrors';
@@ -134,7 +135,9 @@ export function App() {
       <AppHeader />
       <main className="app-main">
         {state.status === 'done' ? (
-          <AnalysisResultView result={state.result} onAnalyzeAnother={openFilePicker} />
+          <AnalysisResultView result={state.result} onAnalyzeAnother={openFilePicker}>
+            <JsonPreview result={state.result} />
+          </AnalysisResultView>
         ) : (
           <section className="card" aria-labelledby="upload-heading">
             <h2 id="upload-heading" className="card-title">

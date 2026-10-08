@@ -391,6 +391,37 @@ ul {
   border-radius: 999px;
 }
 
+/* JSON preview */
+
+.json-preview summary {
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.json-preview-text {
+  max-height: 24rem;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background-color: var(--color-bg);
+  border-radius: 0.5rem;
+}
+
+.copy-feedback {
+  min-height: 1.5em;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.copy-feedback--error {
+  color: var(--color-error);
+}
+
 .analysis-actions {
   display: flex;
   flex-wrap: wrap;
