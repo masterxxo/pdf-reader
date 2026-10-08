@@ -24,7 +24,7 @@ describe('getAnalysisErrorMessage', () => {
   });
 
   it('maps specific codes to specific messages', () => {
-    expect(getAnalysisErrorMessage('RATE_LIMITED')).toMatch(/zbyt wiele żądań/i);
+    expect(getAnalysisErrorMessage('RATE_LIMITED')).toMatch(/limit zapytań/);
     expect(getAnalysisErrorMessage('TEXT_TOO_LONG')).toMatch(/zbyt długi/);
     expect(getAnalysisErrorMessage('NETWORK_ERROR')).toMatch(/połączenia/);
   });

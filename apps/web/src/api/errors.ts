@@ -13,7 +13,7 @@ const ERROR_MESSAGES: Record<AnalysisErrorCode, string> = {
   INVALID_REQUEST: 'Nie udało się wysłać dokumentu do analizy. Spróbuj z innym plikiem.',
   TEXT_TOO_LONG:
     'Dokument jest zbyt długi, aby go przeanalizować. Wybierz krótszy plik (obsługa długich dokumentów pojawi się wkrótce).',
-  RATE_LIMITED: 'Wysłano zbyt wiele żądań. Odczekaj minutę i spróbuj ponownie.',
+  RATE_LIMITED: 'Przekroczono limit zapytań do usługi analizy. Odczekaj minutę i spróbuj ponownie.',
   LLM_TIMEOUT: 'Analiza trwała zbyt długo. Spróbuj ponownie.',
   LLM_UNAVAILABLE: 'Usługa analizy AI jest chwilowo niedostępna. Spróbuj ponownie za chwilę.',
   LLM_INVALID_OUTPUT: 'Model AI zwrócił nieprawidłową odpowiedź. Spróbuj ponownie.',
