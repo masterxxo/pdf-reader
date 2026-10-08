@@ -56,13 +56,15 @@ if (!existsSync(devVarsPath)) {
   copyFileSync(devVarsExamplePath, devVarsPath);
   fail(
     'Created apps/api/.dev.vars from the example.\n' +
-      '  Put your Gemini API key in it (LLM_API_KEY=...) and run this command again.\n' +
-      '  Get a key at https://aistudio.google.com/apikey',
+      '  Put at least one API key in it and run this command again:\n' +
+      '  MISTRAL_API_KEY (primary, https://console.mistral.ai/api-keys) and/or\n' +
+      '  LLM_API_KEY (Gemini fallback, https://aistudio.google.com/apikey).',
   );
 }
-const hasApiKey = /^LLM_API_KEY=\S+/m.test(readFileSync(devVarsPath, 'utf8'));
+// Either provider is enough; the API skips a provider without a key.
+const hasApiKey = /^(MISTRAL_API_KEY|LLM_API_KEY)=\S+/m.test(readFileSync(devVarsPath, 'utf8'));
 if (!hasApiKey) {
-  fail('LLM_API_KEY in apps/api/.dev.vars is empty. Add your Gemini API key and run again.');
+  fail('No API key in apps/api/.dev.vars. Set MISTRAL_API_KEY and/or LLM_API_KEY and run again.');
 }
 
 // 3. Dependencies.

@@ -1,4 +1,14 @@
+# Local secrets for `wrangler dev`. Copy to .dev.vars (git-ignored) and fill in.
+# In production they are set with `wrangler secret put <NAME>`.
 MISTRAL_API_KEY=
 LLM_API_KEY=
 # Optional: set to 1 to log request timings and LLM attempts (local only).
 DEBUG=
+
+# Optional overrides of the [vars] in wrangler.toml (defaults are set there):
+# MISTRAL_MODEL=
+# LLM_MODEL=
+# ALLOWED_ORIGINS=
+# SINGLE_CALL_MAX_TOKENS=
+# MAX_CHUNKS=
+# CHUNK_CONCURRENCY=
