@@ -69,6 +69,10 @@ export class RequestMetrics {
     this.log = options.log ?? (() => undefined);
   }
 
+  get startedAt(): number {
+    return this.#startedAt;
+  }
+
   get attempts(): readonly LlmAttempt[] {
     return this.#attempts;
   }

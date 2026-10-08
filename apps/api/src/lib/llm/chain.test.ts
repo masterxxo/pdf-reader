@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../errors';
+import { TimeBudget } from '../budget';
 import { makeLlmAnalysis } from '../../test/fixtures';
 import { analyzeText } from '../analyze';
 import { ProviderChain, type ProviderChainOptions } from './chain';
@@ -152,6 +153,58 @@ describe('ProviderChain with analyzeText', () => {
     expect(sleep).toHaveBeenCalledTimes(1);
     expect(mistral.generate).toHaveBeenCalledTimes(3);
     expect(gemini.generate).toHaveBeenCalledTimes(1);
+  });
+
+  describe('with a time budget', () => {
+    /** A budget on a manual clock; each provider call advances it by `callMs`. */
+    function budgetedChain(steps: Record<string, Step[]>, callMs: number) {
+      let time = 0;
+      const budget = new TimeBudget({
+        deadline: 27_000,
+        safetyMarginMs: 1_000,
+        minAttemptMs: 8_000,
+        now: () => time,
+      });
+      const providers = Object.entries(steps).map(([name, providerSteps]) => {
+        const provider = fakeProvider(name, providerSteps);
+        const generate = provider.generate.getMockImplementation();
+        provider.generate.mockImplementation((...args) => {
+          time += callMs;
+          return generate ? generate(...args) : Promise.reject(new Error('No step'));
+        });
+        return provider;
+      });
+      return { chain: createChain(providers, { budget }).chain, providers };
+    }
+
+    it('gives each call the remaining time minus the safety margin as its timeout', async () => {
+      const { chain, providers } = budgetedChain({ mistral: ['nie JSON', VALID] }, 5_000);
+
+      await expect(analyzeText('Treść', chain)).resolves.toEqual(makeLlmAnalysis());
+      const timeouts = providers[0]?.generate.mock.calls.map(([, , options]) => options?.timeoutMs);
+      expect(timeouts).toEqual([26_000, 21_000]);
+    });
+
+    it('does not start the fallback when too little time is left', async () => {
+      const { chain, providers } = budgetedChain({ mistral: [timeout()], gemini: [VALID] }, 20_000);
+
+      expect((await errorOf(analyzeText('Treść', chain))).code).toBe('LLM_TIMEOUT');
+      expect(providers[1]?.generate).not.toHaveBeenCalled();
+    });
+
+    it('does not start the retry when too little time is left', async () => {
+      const { chain, providers } = budgetedChain({ mistral: ['nie JSON', VALID] }, 19_000);
+
+      expect((await errorOf(analyzeText('Treść', chain))).code).toBe('LLM_TIMEOUT');
+      expect(providers[0]?.generate).toHaveBeenCalledTimes(1);
+    });
+
+    it('still falls back when a fast failure leaves enough time', async () => {
+      const { chain } = budgetedChain({ mistral: [rateLimited()], gemini: [VALID] }, 500);
+
+      await expect(analyzeText('Treść', chain)).resolves.toEqual(makeLlmAnalysis());
+      expect(chain.lastProvider).toBe('gemini');
+    });
   });
 
   it('requires at least one provider', () => {

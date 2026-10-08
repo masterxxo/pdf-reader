@@ -5,6 +5,7 @@ import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
 import { CACHE_HEADER, PROVIDER_HEADER } from '../headers';
 import { analyzeDocument } from '../lib/analyze';
+import { REQUEST_BUDGET_MS, TimeBudget } from '../lib/budget';
 import { analysisCacheKey, readCachedAnalysis, writeCachedAnalysis } from '../lib/cache';
 import { ProviderChain, type ProviderChainOptions } from '../lib/llm/chain';
 import { estimateTokens } from '../lib/metrics';
@@ -78,7 +79,11 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
       return respond(cached.analysis, cached.provider, 'HIT');
     }
 
-    const llm = new ProviderChain(createProviders(c.env), { ...options.chain, metrics });
+    const budget = new TimeBudget({
+      deadline: metrics.startedAt + REQUEST_BUDGET_MS,
+      now: () => metrics.now(),
+    });
+    const llm = new ProviderChain(createProviders(c.env), { ...options.chain, metrics, budget });
     const analysis = await analyzeDocument(text, llm, { signal: c.req.raw.signal, metrics });
     // Set whenever the chain returned output, which analyzeDocument requires.
     const provider = llm.lastProvider ?? 'unknown';

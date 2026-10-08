@@ -13,7 +13,8 @@ const ERRORS: Record<ApiErrorCode, { status: ContentfulStatusCode; message: stri
   },
   LLM_TIMEOUT: {
     status: 504,
-    message: 'Analiza trwała zbyt długo. Spróbuj ponownie.',
+    message:
+      'Analiza nie zmieściła się w limicie czasu. Spróbuj ponownie za chwilę lub prześlij krótszy dokument.',
   },
   LLM_UNAVAILABLE: {
     status: 502,

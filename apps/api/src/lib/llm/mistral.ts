@@ -16,7 +16,7 @@ export interface MistralProviderOptions {
 }
 
 const MISTRAL_CHAT_COMPLETIONS_URL = 'https://api.mistral.ai/v1/chat/completions';
-/** Shorter than Gemini's, so a fallback still fits in the client's timeout. */
+/** Used only when the caller passes no timeout (the request budget normally sets it). */
 export const DEFAULT_MISTRAL_TIMEOUT_MS = 20_000;
 
 // Content is a string, or an array of chunks for reasoning models (thinking

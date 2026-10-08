@@ -1,4 +1,5 @@
 import { ApiError } from '../../errors';
+import type { TimeBudget } from '../budget';
 import { outcomeFromErrorCode, type RequestMetrics } from '../metrics';
 import {
   LlmProviderError,
@@ -24,6 +25,12 @@ export interface ProviderChainOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Records every provider call (duration, outcome, token usage). */
   metrics?: RequestMetrics;
+  /**
+   * Deadline shared by all calls: each call gets the remaining time as its
+   * timeout, and no call starts when too little is left. Without it, each
+   * provider uses its own default timeout.
+   */
+  budget?: TimeBudget;
 }
 
 const DEFAULT_MAX_RETRY_WAIT_MS = 2_000;
@@ -46,6 +53,7 @@ export class ProviderChain {
   readonly #defaultRetryWaitMs: number;
   readonly #sleep: (ms: number) => Promise<void>;
   readonly #metrics: RequestMetrics | undefined;
+  readonly #budget: TimeBudget | undefined;
   /** Index of the provider that produced the last output. */
   #current = 0;
   #lastProvider: string | undefined;
@@ -59,6 +67,7 @@ export class ProviderChain {
     this.#defaultRetryWaitMs = options.defaultRetryWaitMs ?? DEFAULT_RETRY_WAIT_MS;
     this.#sleep = options.sleep ?? defaultSleep;
     this.#metrics = options.metrics;
+    this.#budget = options.budget;
   }
 
   /** Name of the provider that produced the last output, if any. */
@@ -130,10 +139,22 @@ export class ProviderChain {
     label: string,
   ): Promise<LlmOutput> {
     const metrics = this.#metrics;
+    let timeoutMs: number | undefined;
+    try {
+      // Throws LLM_TIMEOUT (not a provider error, so no fallback) when too little time is left.
+      timeoutMs = this.#budget?.attemptTimeoutMs();
+    } catch (error) {
+      metrics?.log('budget_exhausted', {
+        provider: provider.name,
+        label,
+        remainingMs: this.#budget?.remainingMs(),
+      });
+      throw error;
+    }
     const startedAt = metrics?.now() ?? 0;
     const elapsed = () => (metrics ? metrics.now() - startedAt : 0);
     try {
-      const output = await provider.generate(prompt, jsonSchema, { signal });
+      const output = await provider.generate(prompt, jsonSchema, { signal, timeoutMs });
       metrics?.recordAttempt({
         provider: provider.name,
         label,
