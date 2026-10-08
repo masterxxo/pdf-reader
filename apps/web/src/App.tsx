@@ -2,12 +2,20 @@ import { ACCEPTED_MIME_TYPE, type AnalysisResult, type AnalyzeRequest } from '@p
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { analyzeDocument } from './api/client';
 import { AnalysisError, isRetryableError } from './api/errors';
+import { AnalysisHistory } from './components/AnalysisHistory';
 import { AnalysisResultView } from './components/AnalysisResultView';
 import { AppHeader } from './components/AppHeader';
 import { ErrorMessage } from './components/ErrorMessage';
 import { JsonPreview } from './components/JsonPreview';
 import { LongAnalysisHint } from './components/LongAnalysisHint';
 import { PdfDropzone } from './components/PdfDropzone';
+import {
+  clearHistory,
+  readHistory,
+  removeFromHistory,
+  saveToHistory,
+  type HistoryEntry,
+} from './lib/history';
 import { extractPdfText } from './lib/pdf';
 import { toPdfExtractionError } from './lib/pdfErrors';
 import { validateFile } from './lib/validateFile';
@@ -22,6 +30,7 @@ type AppState =
 
 export function App() {
   const [state, setState] = useState<AppState>({ status: 'idle' });
+  const [history, setHistory] = useState<HistoryEntry[]>(() => readHistory());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropzoneRef = useRef<HTMLButtonElement>(null);
   // Incremented per run (file or retry); results of a superseded run are ignored.
@@ -58,6 +67,7 @@ export function App() {
     try {
       const result = await analyzeDocument(input, { signal: controller.signal });
       if (!isCurrentRun()) return;
+      setHistory(saveToHistory(result));
       setState({ status: 'done', result });
     } catch (error) {
       if (!isCurrentRun() || controller.signal.aborted) return;
@@ -123,6 +133,25 @@ export function App() {
     dropzoneRef.current?.focus();
   };
 
+  // History entries are already validated, so they open without calling the API.
+  const openHistoryEntry = (entry: HistoryEntry) => {
+    startRun();
+    setState({ status: 'done', result: entry.result });
+  };
+
+  const goToStart = () => {
+    setState({ status: 'idle' });
+  };
+
+  // The dropzone is mounted again on the way back from the results.
+  const previousStatusRef = useRef(state.status);
+  useEffect(() => {
+    if (previousStatusRef.current === 'done' && state.status === 'idle') {
+      dropzoneRef.current?.focus();
+    }
+    previousStatusRef.current = state.status;
+  }, [state.status]);
+
   const isReading = state.status === 'reading';
   const busyFileName =
     state.status === 'reading'
@@ -136,7 +165,11 @@ export function App() {
       <AppHeader />
       <main className="app-main">
         {state.status === 'done' ? (
-          <AnalysisResultView result={state.result} onAnalyzeAnother={openFilePicker}>
+          <AnalysisResultView
+            result={state.result}
+            onAnalyzeAnother={openFilePicker}
+            onBack={goToStart}
+          >
             <JsonPreview result={state.result} />
           </AnalysisResultView>
         ) : (
@@ -177,6 +210,20 @@ export function App() {
                 </>
               )}
             </div>
+
+            {state.status === 'idle' && (
+              <AnalysisHistory
+                entries={history}
+                onOpen={openHistoryEntry}
+                onRemove={(id) => {
+                  setHistory(removeFromHistory(id));
+                }}
+                onClear={() => {
+                  clearHistory();
+                  setHistory([]);
+                }}
+              />
+            )}
           </section>
         )}
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DOCUMENT_TYPE_LABELS, formatAmount, formatDate, formatLanguage } from './format';
+import {
+  DOCUMENT_TYPE_LABELS,
+  formatAmount,
+  formatDate,
+  formatDateTime,
+  formatLanguage,
+} from './format';
 
 // Intl uses narrow no-break spaces as group separators in pl-PL.
 const normalizeSpaces = (text: string) => text.replace(/[\u00a0\u202f]/g, ' ');
@@ -29,5 +35,11 @@ describe('format', () => {
     expect(formatLanguage('pl')).toBe('polski');
     expect(formatLanguage('en')).toBe('angielski');
     expect(formatLanguage('qq')).toBe('qq');
+  });
+
+  it('formats timestamps in pl-PL in the local time zone', () => {
+    const localTime = new Date(2026, 9, 8, 14, 30).toISOString();
+    expect(normalizeSpaces(formatDateTime(localTime))).toBe('8 paź 2026, 14:30');
+    expect(formatDateTime('wczoraj')).toBe('wczoraj');
   });
 });

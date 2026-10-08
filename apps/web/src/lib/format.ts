@@ -12,6 +12,8 @@ const LOCALE = 'pl-PL';
 
 const numberFormat = new Intl.NumberFormat(LOCALE);
 const dateFormat = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'long', timeZone: 'UTC' });
+// Local time zone: this is when the user ran the analysis, not a document date.
+const dateTimeFormat = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
 const languageNames = new Intl.DisplayNames([LOCALE], { type: 'language', fallback: 'none' });
 
 export function formatNumber(value: number): string {
@@ -41,4 +43,10 @@ export function formatAmount(value: number, currency: string): string {
 export function formatDate(isoDate: string): string {
   const date = new Date(`${isoDate}T00:00:00Z`);
   return Number.isNaN(date.getTime()) ? isoDate : dateFormat.format(date);
+}
+
+/** "2026-10-08T12:30:00Z" → "8 paź 2026, 14:30" (in the user's time zone). */
+export function formatDateTime(isoDateTime: string): string {
+  const date = new Date(isoDateTime);
+  return Number.isNaN(date.getTime()) ? isoDateTime : dateTimeFormat.format(date);
 }

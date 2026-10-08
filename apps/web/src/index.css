@@ -11,6 +11,7 @@
   --color-divider: #e5e7eb;
   --color-focus: #1d4ed8;
   --color-error: #b91c1c;
+  --color-error-hover: #991b1b;
   --color-error-soft: #fef2f2;
   --color-disabled-bg: #f3f4f6;
 
@@ -200,6 +201,23 @@ ul {
   background-color: var(--color-primary-soft);
 }
 
+.button--danger {
+  color: #ffffff;
+  background-color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.button--danger:hover {
+  background-color: var(--color-error-hover);
+  border-color: var(--color-error-hover);
+}
+
+.button--small {
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.875rem;
+}
+
 /* Reading status */
 
 .status {
@@ -272,6 +290,81 @@ ul {
   font-size: 0.875rem;
   color: var(--color-text-muted);
   text-align: center;
+}
+
+/* History */
+
+.history {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-divider);
+}
+
+.history-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.history-notice,
+.history-empty {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  list-style: none;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.history-open {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.history-open:hover {
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+.history-file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.history-meta {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.history-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-weight: 600;
 }
 
 /* Analysis result */

@@ -12,6 +12,8 @@ import { ResultSection } from './ResultSection';
 interface AnalysisResultViewProps {
   result: AnalysisResult;
   onAnalyzeAnother: () => void;
+  /** Back to the start screen with the dropzone and the history. */
+  onBack: () => void;
   /** Extra content rendered after the result sections (e.g. the JSON preview). */
   children?: ReactNode;
 }
@@ -30,6 +32,7 @@ function TextList({ items }: { items: readonly string[] }) {
 export function AnalysisResultView({
   result,
   onAnalyzeAnother,
+  onBack,
   children,
 }: AnalysisResultViewProps) {
   const headingId = useId();
@@ -130,6 +133,9 @@ export function AnalysisResultView({
       <div className="analysis-actions">
         <button type="button" className="button button--primary" onClick={onAnalyzeAnother}>
           Analizuj inny plik
+        </button>
+        <button type="button" className="button button--secondary" onClick={onBack}>
+          Wróć do strony głównej
         </button>
       </div>
     </article>
