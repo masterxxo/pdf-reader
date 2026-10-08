@@ -223,6 +223,13 @@ ul {
   overflow-wrap: anywhere;
 }
 
+.status-hint {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
 .spinner {
   flex-shrink: 0;
   width: 1.5rem;

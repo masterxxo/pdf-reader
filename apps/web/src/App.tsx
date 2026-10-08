@@ -6,6 +6,7 @@ import { AnalysisResultView } from './components/AnalysisResultView';
 import { AppHeader } from './components/AppHeader';
 import { ErrorMessage } from './components/ErrorMessage';
 import { JsonPreview } from './components/JsonPreview';
+import { LongAnalysisHint } from './components/LongAnalysisHint';
 import { PdfDropzone } from './components/PdfDropzone';
 import { extractPdfText } from './lib/pdf';
 import { toPdfExtractionError } from './lib/pdfErrors';
@@ -157,8 +158,9 @@ export function App() {
             />
 
             <p className="privacy-notice">
-              Treść dokumentu zostanie wysłana do zewnętrznego API sztucznej inteligencji (Google
-              Gemini) w celu analizy. Nie przesyłaj dokumentów zawierających poufne dane.
+              Treść dokumentu zostanie wysłana do zewnętrznego API sztucznej inteligencji (Mistral
+              AI, a gdy jest niedostępne — Google Gemini) w celu analizy. Nie przesyłaj dokumentów
+              zawierających poufne dane.
             </p>
 
             {/* Always mounted so screen readers announce status changes. */}
@@ -169,6 +171,8 @@ export function App() {
                   <span>
                     {isReading ? 'Odczytywanie dokumentu…' : 'Analizowanie treści…'}
                     <span className="status-file-name">{busyFileName}</span>
+                    {/* Mounted per analysis, so its timer restarts with every run. */}
+                    {state.status === 'analyzing' && <LongAnalysisHint />}
                   </span>
                 </>
               )}

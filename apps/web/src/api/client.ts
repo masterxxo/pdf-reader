@@ -6,8 +6,8 @@ import {
 } from '@pdf-insight/shared';
 import { AnalysisError, errorCodeFromStatus } from './errors';
 
-/** Longer than the worst case on the server (model call + one retry). */
-export const CLIENT_TIMEOUT_MS = 60_000;
+/** Longer than the server's whole time budget (27 s for all model calls) plus the network. */
+export const CLIENT_TIMEOUT_MS = 40_000;
 
 export interface AnalyzeOptions {
   signal?: AbortSignal;
