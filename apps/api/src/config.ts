@@ -1,8 +1,17 @@
 import type { LongDocumentConfig } from './lib/analyze';
 
+/**
+ * Measured with ministral-8b-2512 on the free Mistral plan: one call takes
+ * ~18–25 s for 20k–100k input tokens (output generation dominates), while
+ * map-reduce over 2 chunks cannot finish in the 27 s budget (parallel calls
+ * are throttled; two sequential maps plus the reduce take ~30 s). So by
+ * default a document is analyzed in one call up to ~50k tokens (~135k
+ * characters) and longer ones are rejected upfront. MAX_CHUNKS=2 enables
+ * the chunked path where the provider allows real parallel calls.
+ */
 export const DEFAULT_LONG_DOCUMENT_CONFIG: LongDocumentConfig = {
-  singleCallMaxTokens: 60_000,
-  maxChunks: 2,
+  singleCallMaxTokens: 50_000,
+  maxChunks: 1,
   concurrency: 2,
 };
 

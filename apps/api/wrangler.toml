@@ -22,10 +22,13 @@ MISTRAL_MODEL = "ministral-8b-2512"
 LLM_MODEL = "gemini-3.8-flash"
 # Comma-separated, exact origins (scheme + host + optional port, no path).
 ALLOWED_ORIGINS = "https://masterxxo.github.io,http://localhost:5173"
-# Long documents: text above this many estimated tokens (~2.7 chars each) is
-# analyzed in up to MAX_CHUNKS chunks, CHUNK_CONCURRENCY at a time, then merged.
-SINGLE_CALL_MAX_TOKENS = "60000"
-MAX_CHUNKS = "2"
+# Long documents: text above SINGLE_CALL_MAX_TOKENS estimated tokens (~2.7 chars
+# each) is split into chunks analyzed CHUNK_CONCURRENCY at a time, then merged.
+# MAX_CHUNKS = 1 rejects it instead (TEXT_TOO_LONG): on the free Mistral plan
+# parallel calls are throttled and map-reduce cannot finish within the 27 s
+# budget, while one call handles ~50k tokens in ~25 s (see src/config.ts).
+SINGLE_CALL_MAX_TOKENS = "50000"
+MAX_CHUNKS = "1"
 CHUNK_CONCURRENCY = "2"
 
 # Analysis results, keyed by a hash of the prompt and the document text (7-day TTL).
