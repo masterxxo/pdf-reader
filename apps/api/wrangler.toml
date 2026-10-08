@@ -1,6 +1,9 @@
 name = "pdf-insight-api"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
+# Served from *.workers.dev; per-version preview URLs are not needed.
+workers_dev = true
+preview_urls = false
 
 # Secrets (e.g. LLM_API_KEY) are set via `wrangler secret put`, never committed.
 # For local development copy .dev.vars.example to .dev.vars.
