@@ -13,9 +13,10 @@ port = 8787
 # For local development copy .dev.vars.example to .dev.vars.
 
 [vars]
-# Primary provider. Pinned Mistral Small 4 (v26.03): strict json_schema output,
-# good Polish and low latency on the free Experiment plan.
-MISTRAL_MODEL = "mistral-small-2603"
+# Primary provider. Pinned Ministral 3 8B (v25.12): strict json_schema output and
+# good Polish at ~11 s per analysis. On the free Experiment plan Mistral Small and
+# Medium have a quota of 0, 14B takes ~40 s and 3B is less precise.
+MISTRAL_MODEL = "ministral-8b-2512"
 # Fallback provider (Gemini). Stable Flash model with structured JSON output,
 # available on the free tier.
 LLM_MODEL = "gemini-3.8-flash"

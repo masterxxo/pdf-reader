@@ -55,6 +55,8 @@ describe('createMistralProvider', () => {
       },
     });
     expect(String(init?.body)).not.toContain('$schema');
+    // Non-reasoning models reject reasoning_effort with HTTP 400.
+    expect(String(init?.body)).not.toContain('reasoning_effort');
   });
 
   it('joins text chunks and skips thinking chunks', async () => {

@@ -51,8 +51,6 @@ export function createMistralProvider(options: MistralProviderOptions): LlmProvi
       const body = {
         model,
         temperature,
-        // Analysis needs no step-by-step reasoning; it would only add latency.
-        reasoning_effort: 'none',
         messages: [
           { role: 'system', content: systemInstruction },
           ...messages.map((message) => ({ role: message.role, content: message.text })),
