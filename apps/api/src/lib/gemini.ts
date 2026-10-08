@@ -16,8 +16,8 @@ export interface GenerateJsonRequest {
 
 /**
  * Sends a conversation to the model and returns the raw text of its JSON
- * response (unparsed). Throws ApiError (LLM_TIMEOUT / LLM_UNAVAILABLE) on
- * transport and upstream failures.
+ * response (unparsed). Throws ApiError (LLM_TIMEOUT / LLM_UNAVAILABLE /
+ * RATE_LIMITED) on transport and upstream failures.
  */
 export type GenerateJson = (request: GenerateJsonRequest) => Promise<string>;
 
@@ -93,6 +93,13 @@ export function createGeminiClient(options: GeminiClientOptions): GenerateJson {
       });
     } catch (error) {
       throw new ApiError(isAbortError(error) ? 'LLM_TIMEOUT' : 'LLM_UNAVAILABLE', { cause: error });
+    }
+
+    // Gemini quota exceeded (the free tier allows only a few requests per minute).
+    if (response.status === 429) {
+      throw new ApiError('RATE_LIMITED', {
+        cause: new Error('Gemini responded with HTTP 429'),
+      });
     }
 
     // The upstream body may echo request details, so it is never passed on.

@@ -9,7 +9,7 @@ const ERRORS: Record<ApiErrorCode, { status: ContentfulStatusCode; message: stri
   },
   RATE_LIMITED: {
     status: 429,
-    message: 'Zbyt wiele żądań. Odczekaj chwilę i spróbuj ponownie.',
+    message: 'Przekroczono limit zapytań. Odczekaj minutę i spróbuj ponownie.',
   },
   LLM_TIMEOUT: {
     status: 504,

@@ -126,6 +126,15 @@ describe('POST /analyze', () => {
     expect(text).not.toContain('test-secret-key');
   });
 
+  it('returns 429 RATE_LIMITED when the Gemini quota is exceeded', async () => {
+    fetchMock.mockResolvedValue(new Response('quota details', { status: 429 }));
+    const response = await postAnalyze(validRequest);
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+    expect(await errorCode(response)).toBe('RATE_LIMITED');
+  });
+
   it('returns 500 INTERNAL when the API key is not configured', async () => {
     const response = await postAnalyze(validRequest, makeEnv({ LLM_API_KEY: '' }));
     expect(response.status).toBe(500);

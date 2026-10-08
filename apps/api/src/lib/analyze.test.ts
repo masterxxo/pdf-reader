@@ -138,6 +138,15 @@ describe('analyzeText with Gemini', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('fails with RATE_LIMITED when the Gemini quota is exceeded, without retrying', async () => {
+    const fetchMock: FetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('{"error":{"status":"RESOURCE_EXHAUSTED"}}', { status: 429 })),
+    );
+
+    await expectApiError(analyzeText('Treść', createClient(fetchMock)), 'RATE_LIMITED');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('fails with LLM_UNAVAILABLE on a network error', async () => {
     const fetchMock: FetchMock = vi.fn<typeof fetch>(() =>
       Promise.reject(new TypeError('fetch failed')),

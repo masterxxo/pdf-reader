@@ -15,11 +15,12 @@ LLM_MODEL = "gemini-3.8-flash"
 ALLOWED_ORIGINS = "https://masterxxo.github.io,http://localhost:5173"
 MAX_TEXT_CHARS = "150000"
 
-# Per-IP limit for POST /analyze. namespace_id must be unique within the account.
+# Per-IP limit for POST /analyze, matching the Gemini free-tier quota (5 requests/min).
+# namespace_id must be unique within the account.
 [[ratelimits]]
 name = "ANALYZE_RATE_LIMITER"
 namespace_id = "1001"
 
   [ratelimits.simple]
-  limit = 10
+  limit = 5
   period = 60
