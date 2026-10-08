@@ -1,16 +1,7 @@
+import type { ApiErrorCode, ApiErrorResponse } from '@pdf-insight/shared';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
-export type ErrorCode =
-  | 'INVALID_REQUEST'
-  | 'TEXT_TOO_LONG'
-  | 'RATE_LIMITED'
-  | 'LLM_TIMEOUT'
-  | 'LLM_UNAVAILABLE'
-  | 'LLM_INVALID_OUTPUT'
-  | 'NOT_FOUND'
-  | 'INTERNAL';
-
-const ERRORS: Record<ErrorCode, { status: ContentfulStatusCode; message: string }> = {
+const ERRORS: Record<ApiErrorCode, { status: ContentfulStatusCode; message: string }> = {
   INVALID_REQUEST: { status: 400, message: 'Nieprawidłowe żądanie.' },
   TEXT_TOO_LONG: {
     status: 413,
@@ -38,10 +29,10 @@ const ERRORS: Record<ErrorCode, { status: ContentfulStatusCode; message: string 
 
 /** An error that maps to a known API error response. */
 export class ApiError extends Error {
-  readonly code: ErrorCode;
+  readonly code: ApiErrorCode;
   readonly status: ContentfulStatusCode;
 
-  constructor(code: ErrorCode, options?: { message?: string; cause?: unknown }) {
+  constructor(code: ApiErrorCode, options?: { message?: string; cause?: unknown }) {
     const { status, message } = ERRORS[code];
     super(options?.message ?? message, { cause: options?.cause });
     this.name = 'ApiError';
@@ -50,10 +41,6 @@ export class ApiError extends Error {
   }
 }
 
-export interface ErrorBody {
-  error: { code: ErrorCode; message: string };
-}
-
-export function toErrorBody(error: ApiError): ErrorBody {
+export function toErrorBody(error: ApiError): ApiErrorResponse {
   return { error: { code: error.code, message: error.message } };
 }

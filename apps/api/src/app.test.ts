@@ -1,3 +1,4 @@
+import { ApiErrorResponseSchema } from '@pdf-insight/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_BODY_BYTES, createApp } from './app';
 import type { Env } from './env';
@@ -32,8 +33,9 @@ function postAnalyze(body: unknown, env: Env = makeEnv(), headers: Record<string
   );
 }
 
+/** Asserts the shared error shape and returns its code. */
 async function errorCode(response: Response): Promise<string> {
-  const body = (await response.json()) as { error: { code: string; message: string } };
+  const body = ApiErrorResponseSchema.parse(await response.json());
   expect(body.error.message.length).toBeGreaterThan(0);
   return body.error.code;
 }
