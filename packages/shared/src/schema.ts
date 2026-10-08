@@ -15,6 +15,20 @@ export const LanguageSchema = z.string().regex(/^[a-z]{2}$/);
 /** ISO 4217: three uppercase letters, e.g. "PLN", "EUR". */
 export const CurrencySchema = z.string().regex(/^[A-Z]{3}$/);
 
+/**
+ * Maximum list lengths. They keep the model output (and so its latency, which
+ * grows with every generated token) bounded; the prompt asks the model to keep
+ * the most important items.
+ */
+export const LIST_LIMITS = {
+  keyPoints: 7,
+  organizations: 15,
+  people: 15,
+  amounts: 10,
+  dates: 10,
+  keywords: 10,
+} as const;
+
 const LlmDocumentSchema = z.object({
   language: LanguageSchema,
   type: DocumentTypeSchema,
@@ -42,14 +56,14 @@ export const LlmAnalysisSchema = z.object({
   document: LlmDocumentSchema,
   summary: z.string().trim().min(1),
   // The prompt asks for 3–7; min 1 so very short documents still validate.
-  keyPoints: z.array(z.string()).min(1).max(7),
+  keyPoints: z.array(z.string()).min(1).max(LIST_LIMITS.keyPoints),
   entities: z.object({
-    organizations: z.array(z.string()),
-    people: z.array(z.string()),
+    organizations: z.array(z.string()).max(LIST_LIMITS.organizations),
+    people: z.array(z.string()).max(LIST_LIMITS.people),
   }),
-  amounts: z.array(AmountSchema),
-  dates: z.array(DateEntrySchema),
-  keywords: z.array(z.string()),
+  amounts: z.array(AmountSchema).max(LIST_LIMITS.amounts),
+  dates: z.array(DateEntrySchema).max(LIST_LIMITS.dates),
+  keywords: z.array(z.string()).max(LIST_LIMITS.keywords),
 });
 
 export const AnalysisResultSchema = LlmAnalysisSchema.extend({

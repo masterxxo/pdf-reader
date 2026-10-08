@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AnalysisResultSchema,
+  LIST_LIMITS,
   AnalyzeRequestSchema,
   CurrencySchema,
   IsoDateSchema,
@@ -100,6 +101,58 @@ describe('AnalysisResultSchema', () => {
     expect(AnalysisResultSchema.safeParse({ ...result, keyPoints: eight }).success).toBe(false);
   });
 
+  it.each([
+    [
+      'organizations',
+      (r: AnalysisResult, n: number) => ({
+        ...r,
+        entities: {
+          ...r.entities,
+          organizations: Array.from({ length: n }, (_, i) => `Firma ${String(i)}`),
+        },
+      }),
+    ],
+    [
+      'people',
+      (r: AnalysisResult, n: number) => ({
+        ...r,
+        entities: {
+          ...r.entities,
+          people: Array.from({ length: n }, (_, i) => `Osoba ${String(i)}`),
+        },
+      }),
+    ],
+    [
+      'amounts',
+      (r: AnalysisResult, n: number) => ({
+        ...r,
+        amounts: Array.from({ length: n }, (_, i) => ({
+          value: i,
+          currency: 'PLN',
+          context: 'Kwota',
+        })),
+      }),
+    ],
+    [
+      'dates',
+      (r: AnalysisResult, n: number) => ({
+        ...r,
+        dates: Array.from({ length: n }, () => ({ date: '2026-10-01', context: 'Data' })),
+      }),
+    ],
+    [
+      'keywords',
+      (r: AnalysisResult, n: number) => ({
+        ...r,
+        keywords: Array.from({ length: n }, (_, i) => `słowo ${String(i)}`),
+      }),
+    ],
+  ] as const)('accepts up to the limit of %s and rejects more', (name, withItems) => {
+    const limit = LIST_LIMITS[name];
+    expect(AnalysisResultSchema.safeParse(withItems(makeResult(), limit)).success).toBe(true);
+    expect(AnalysisResultSchema.safeParse(withItems(makeResult(), limit + 1)).success).toBe(false);
+  });
+
   it('rejects non-finite amount values', () => {
     const result = makeResult();
     for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
@@ -157,6 +210,15 @@ describe('LlmAnalysisSchema', () => {
     });
     expect(documentSchema).not.toHaveProperty('properties.fileName');
     expect(documentSchema).not.toHaveProperty('properties.pages');
+  });
+
+  it('exports the list limits as maxItems', () => {
+    const { properties } = llmAnalysisJsonSchema;
+    expect(properties?.['keyPoints']).toMatchObject({ minItems: 1, maxItems: 7 });
+    expect(properties?.['amounts']).toMatchObject({ maxItems: 10 });
+    expect(properties?.['entities']).toMatchObject({
+      properties: { organizations: { maxItems: 15 }, people: { maxItems: 15 } },
+    });
   });
 });
 
