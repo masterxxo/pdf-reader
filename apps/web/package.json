@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b",
-    "test": "vitest run",
-    "format": "prettier --write . --ignore-path ../../.prettierignore"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

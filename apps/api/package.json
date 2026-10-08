@@ -7,8 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit",
-    "format": "prettier --write . --ignore-path ../../.prettierignore"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "hono": "^4.13.13"
