@@ -59,9 +59,6 @@ export const AnalysisResultSchema = LlmAnalysisSchema.extend({
   }),
 });
 
-/** JSON Schema of the model output, for LLM structured output. */
-export const llmAnalysisJsonSchema = z.toJSONSchema(LlmAnalysisSchema);
-
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
 export type LlmAnalysis = z.infer<typeof LlmAnalysisSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;

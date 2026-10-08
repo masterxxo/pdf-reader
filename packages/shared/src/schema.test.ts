@@ -5,9 +5,9 @@ import {
   IsoDateSchema,
   LanguageSchema,
   LlmAnalysisSchema,
-  llmAnalysisJsonSchema,
   type AnalysisResult,
 } from './schema';
+import { llmAnalysisJsonSchema } from './jsonSchema';
 
 /** Returns a fresh copy so each test can mutate it freely. */
 function makeResult(): AnalysisResult {
