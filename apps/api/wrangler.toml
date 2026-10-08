@@ -4,3 +4,19 @@ compatibility_date = "2026-10-01"
 
 # Secrets (e.g. LLM_API_KEY) are set via `wrangler secret put`, never committed.
 # For local development copy .dev.vars.example to .dev.vars.
+
+[vars]
+# Stable Gemini Flash model with structured JSON output, available on the free tier.
+LLM_MODEL = "gemini-3.8-flash"
+# Comma-separated, exact origins (scheme + host + optional port, no path).
+ALLOWED_ORIGINS = "https://masterxxo.github.io,http://localhost:5173"
+MAX_TEXT_CHARS = "150000"
+
+# Per-IP limit for POST /analyze. namespace_id must be unique within the account.
+[[ratelimits]]
+name = "ANALYZE_RATE_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60

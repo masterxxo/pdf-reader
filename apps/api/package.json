@@ -7,13 +7,17 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "hono": "^4.13.13"
+    "@pdf-insight/shared": "workspace:*",
+    "hono": "^4.13.13",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",
+    "vitest": "^5.0.3",
     "wrangler": "^4.148.0"
   }
 }
