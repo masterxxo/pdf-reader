@@ -10,6 +10,9 @@ import {
   makeResult,
 } from './fixtures';
 
+// These tests mock the API, so they need the local build (see playwright.config.ts).
+test.skip(Boolean(process.env.E2E_BASE_URL), 'Runs only against the local build');
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
