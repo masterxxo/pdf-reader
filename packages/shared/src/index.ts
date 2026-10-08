@@ -1,1 +1,2 @@
-export const APP_NAME = 'PDF Insight';
+export * from './constants';
+export * from './schema';
