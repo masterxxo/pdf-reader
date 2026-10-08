@@ -23,8 +23,26 @@ export function geminiResponse(text: string, init: ResponseInit = {}): Response 
   });
 }
 
+/** A Mistral chat completion response whose message content is `text`. */
+export function mistralResponse(text: string, init: ResponseInit = {}): Response {
+  const body = {
+    choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }],
+  };
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  });
+}
+
+export const isMistralUrl = (url: unknown) => String(url).startsWith('https://api.mistral.ai/');
+export const isGeminiUrl = (url: unknown) =>
+  String(url).startsWith('https://generativelanguage.googleapis.com/');
+
 export function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
+    MISTRAL_API_KEY: 'test-mistral-key',
+    MISTRAL_MODEL: 'test-mistral-model',
     LLM_API_KEY: 'test-secret-key',
     LLM_MODEL: 'test-model',
     ALLOWED_ORIGINS: 'https://masterxxo.github.io,http://localhost:5173',

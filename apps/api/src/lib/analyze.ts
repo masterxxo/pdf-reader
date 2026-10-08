@@ -1,6 +1,7 @@
 import { LlmAnalysisSchema, llmAnalysisJsonSchema, type LlmAnalysis } from '@pdf-insight/shared';
 import { ApiError } from '../errors';
-import type { ChatMessage, LlmProvider } from './llm/types';
+import type { ProviderChain } from './llm/chain';
+import type { ChatMessage } from './llm/types';
 import {
   SYSTEM_INSTRUCTION,
   buildCorrectionPrompt,
@@ -34,6 +35,13 @@ export function parseLlmOutput(raw: string): ParseResult {
   return { success: false, issues };
 }
 
+export type LlmClient = Pick<ProviderChain, 'generate'>;
+
+export interface AnalyzeOptions {
+  part?: DocumentPart;
+  signal?: AbortSignal;
+}
+
 /**
  * Analyzes one piece of text (a whole document or, later, a single chunk).
  * Invalid output is retried exactly once, with the validation errors sent
@@ -41,25 +49,29 @@ export function parseLlmOutput(raw: string): ParseResult {
  */
 export async function analyzeText(
   text: string,
-  llm: LlmProvider,
-  part?: DocumentPart,
+  llm: LlmClient,
+  options: AnalyzeOptions = {},
 ): Promise<LlmAnalysis> {
+  const { part, signal } = options;
   const messages: ChatMessage[] = [{ role: 'user', text: buildUserPrompt(text, part) }];
-  const request = () =>
-    llm.generate({ systemInstruction: SYSTEM_INSTRUCTION, messages }, llmAnalysisJsonSchema);
+  const request = (isRetry: boolean) =>
+    llm.generate({ systemInstruction: SYSTEM_INSTRUCTION, messages }, llmAnalysisJsonSchema, {
+      signal,
+      isRetry,
+    });
 
-  const firstOutput = await request();
+  const firstOutput = await request(false);
   const first = parseLlmOutput(firstOutput);
   if (first.success) {
     return first.data;
   }
 
   messages.push(
-    // Gemini rejects empty parts, so an empty response gets a placeholder.
+    // Providers reject empty messages, so an empty response gets a placeholder.
     { role: 'assistant', text: firstOutput.length > 0 ? firstOutput : '(empty response)' },
     { role: 'user', text: buildCorrectionPrompt(first.issues) },
   );
-  const second = parseLlmOutput(await request());
+  const second = parseLlmOutput(await request(true));
   if (second.success) {
     return second.data;
   }
@@ -70,6 +82,10 @@ export async function analyzeText(
  * Entry point for analyzing a whole document. Currently a single call; this is
  * where splitting into chunks and merging their results will be added.
  */
-export function analyzeDocument(text: string, llm: LlmProvider): Promise<LlmAnalysis> {
-  return analyzeText(text, llm);
+export function analyzeDocument(
+  text: string,
+  llm: LlmClient,
+  signal?: AbortSignal,
+): Promise<LlmAnalysis> {
+  return analyzeText(text, llm, { signal });
 }

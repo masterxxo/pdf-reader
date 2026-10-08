@@ -1,4 +1,8 @@
 export interface Env {
+  /** Mistral, the primary provider. */
+  MISTRAL_API_KEY: string;
+  MISTRAL_MODEL: string;
+  /** Gemini, the fallback provider (names kept from when it was the only one). */
   LLM_API_KEY: string;
   LLM_MODEL: string;
   /** Comma-separated list of exact origins allowed by CORS. */

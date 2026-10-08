@@ -2,17 +2,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../errors';
 import { geminiResponse, makeLlmAnalysis } from '../test/fixtures';
 import { analyzeText, parseLlmOutput } from './analyze';
+import { ProviderChain } from './llm/chain';
 import { createGeminiProvider } from './llm/gemini';
 
 type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>;
 
 function createClient(fetchMock: FetchMock, timeoutMs?: number) {
-  return createGeminiProvider({
-    apiKey: 'test-secret-key',
-    model: 'test-model',
-    fetch: fetchMock,
-    timeoutMs,
-  });
+  return new ProviderChain([
+    createGeminiProvider({
+      apiKey: 'test-secret-key',
+      model: 'test-model',
+      fetch: fetchMock,
+      timeoutMs,
+    }),
+  ]);
 }
 
 interface SentBody {

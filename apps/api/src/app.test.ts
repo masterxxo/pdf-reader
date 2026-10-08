@@ -2,7 +2,14 @@ import { ApiErrorResponseSchema } from '@pdf-insight/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_BODY_BYTES, createApp } from './app';
 import type { Env } from './env';
-import { geminiResponse, makeEnv, makeLlmAnalysis } from './test/fixtures';
+import {
+  geminiResponse,
+  isGeminiUrl,
+  isMistralUrl,
+  makeEnv,
+  makeLlmAnalysis,
+  mistralResponse,
+} from './test/fixtures';
 
 const app = createApp();
 const ALLOWED_ORIGIN = 'https://masterxxo.github.io';
@@ -11,9 +18,10 @@ const validRequest = { fileName: 'faktura.pdf', pages: 2, text: '--- Strona 1 --
 let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
 
 beforeEach(() => {
-  fetchMock = vi.fn<typeof fetch>(() =>
-    Promise.resolve(geminiResponse(JSON.stringify(makeLlmAnalysis()))),
-  );
+  fetchMock = vi.fn<typeof fetch>((url) => {
+    const output = JSON.stringify(makeLlmAnalysis());
+    return Promise.resolve(isMistralUrl(url) ? mistralResponse(output) : geminiResponse(output));
+  });
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -50,6 +58,32 @@ describe('POST /analyze', () => {
       ...makeLlmAnalysis(),
       document: { ...makeLlmAnalysis().document, fileName: 'faktura.pdf', pages: 2 },
     });
+    expect(response.headers.get('X-LLM-Provider')).toBe('mistral');
+    expect(response.headers.get('Access-Control-Expose-Headers')).toContain('X-LLM-Provider');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to Gemini when Mistral is rate limited', async () => {
+    fetchMock.mockImplementation((url) =>
+      Promise.resolve(
+        isMistralUrl(url)
+          ? new Response('quota details', { status: 429 })
+          : geminiResponse(JSON.stringify(makeLlmAnalysis())),
+      ),
+    );
+    const response = await postAnalyze(validRequest);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-LLM-Provider')).toBe('gemini');
+    expect(fetchMock.mock.calls.map(([url]) => isGeminiUrl(url))).toEqual([false, true]);
+  });
+
+  it('uses only Gemini when no Mistral key is configured', async () => {
+    const response = await postAnalyze(validRequest, makeEnv({ MISTRAL_API_KEY: '' }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-LLM-Provider')).toBe('gemini');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('ignores fileName and pages produced by the model', async () => {
@@ -57,7 +91,7 @@ describe('POST /analyze', () => {
       ...makeLlmAnalysis(),
       document: { ...makeLlmAnalysis().document, fileName: 'hacked.pdf', pages: 99 },
     };
-    fetchMock.mockResolvedValue(geminiResponse(JSON.stringify(llmOutput)));
+    fetchMock.mockResolvedValue(mistralResponse(JSON.stringify(llmOutput)));
 
     const result = (await (await postAnalyze(validRequest)).json()) as {
       document: { fileName: string; pages: number };
@@ -108,14 +142,15 @@ describe('POST /analyze', () => {
   });
 
   it('returns 502 LLM_INVALID_OUTPUT after two invalid model responses', async () => {
-    fetchMock.mockImplementation(() => Promise.resolve(geminiResponse('nie JSON')));
+    fetchMock.mockImplementation(() => Promise.resolve(mistralResponse('nie JSON')));
     const response = await postAnalyze(validRequest);
     expect(response.status).toBe(502);
     expect(await errorCode(response)).toBe('LLM_INVALID_OUTPUT');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Invalid output is retried on the same provider, never on the fallback.
+    expect(fetchMock.mock.calls.map(([url]) => isMistralUrl(url))).toEqual([true, true]);
   });
 
-  it('returns 502 LLM_UNAVAILABLE without leaking the upstream body or key', async () => {
+  it('returns 502 LLM_UNAVAILABLE when both providers fail, without leaking bodies or keys', async () => {
     fetchMock.mockResolvedValue(new Response('upstream secret details', { status: 500 }));
     const response = await postAnalyze(validRequest);
     const text = await response.text();
@@ -124,9 +159,11 @@ describe('POST /analyze', () => {
     expect(text).toContain('LLM_UNAVAILABLE');
     expect(text).not.toContain('upstream secret details');
     expect(text).not.toContain('test-secret-key');
+    expect(text).not.toContain('test-mistral-key');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('returns 429 RATE_LIMITED when the Gemini quota is exceeded', async () => {
+  it('returns 429 RATE_LIMITED when both provider quotas are exceeded', async () => {
     fetchMock.mockResolvedValue(new Response('quota details', { status: 429 }));
     const response = await postAnalyze(validRequest);
 
@@ -135,8 +172,9 @@ describe('POST /analyze', () => {
     expect(await errorCode(response)).toBe('RATE_LIMITED');
   });
 
-  it('returns 500 INTERNAL when the API key is not configured', async () => {
-    const response = await postAnalyze(validRequest, makeEnv({ LLM_API_KEY: '' }));
+  it('returns 500 INTERNAL when no API key is configured', async () => {
+    const env = makeEnv({ MISTRAL_API_KEY: '', LLM_API_KEY: '' });
+    const response = await postAnalyze(validRequest, env);
     expect(response.status).toBe(500);
     expect(await errorCode(response)).toBe('INTERNAL');
   });

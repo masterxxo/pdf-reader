@@ -9,11 +9,15 @@ preview_urls = false
 # Fixed so the web app (VITE_API_URL) and scripts/dev.mjs can rely on it.
 port = 8787
 
-# Secrets (e.g. LLM_API_KEY) are set via `wrangler secret put`, never committed.
+# Secrets (MISTRAL_API_KEY, LLM_API_KEY) are set via `wrangler secret put`, never committed.
 # For local development copy .dev.vars.example to .dev.vars.
 
 [vars]
-# Stable Gemini Flash model with structured JSON output, available on the free tier.
+# Primary provider. Pinned Mistral Small 4 (v26.03): strict json_schema output,
+# good Polish and low latency on the free Experiment plan.
+MISTRAL_MODEL = "mistral-small-2603"
+# Fallback provider (Gemini). Stable Flash model with structured JSON output,
+# available on the free tier.
 LLM_MODEL = "gemini-3.8-flash"
 # Comma-separated, exact origins (scheme + host + optional port, no path).
 ALLOWED_ORIGINS = "https://masterxxo.github.io,http://localhost:5173"
