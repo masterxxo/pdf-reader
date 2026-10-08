@@ -1,6 +1,6 @@
 import { LlmAnalysisSchema, llmAnalysisJsonSchema, type LlmAnalysis } from '@pdf-insight/shared';
 import { ApiError } from '../errors';
-import type { ChatMessage, GenerateJson } from './gemini';
+import type { ChatMessage, LlmProvider } from './llm/types';
 import {
   SYSTEM_INSTRUCTION,
   buildCorrectionPrompt,
@@ -41,16 +41,12 @@ export function parseLlmOutput(raw: string): ParseResult {
  */
 export async function analyzeText(
   text: string,
-  generate: GenerateJson,
+  llm: LlmProvider,
   part?: DocumentPart,
 ): Promise<LlmAnalysis> {
   const messages: ChatMessage[] = [{ role: 'user', text: buildUserPrompt(text, part) }];
   const request = () =>
-    generate({
-      systemInstruction: SYSTEM_INSTRUCTION,
-      messages,
-      responseSchema: llmAnalysisJsonSchema,
-    });
+    llm.generate({ systemInstruction: SYSTEM_INSTRUCTION, messages }, llmAnalysisJsonSchema);
 
   const firstOutput = await request();
   const first = parseLlmOutput(firstOutput);
@@ -60,7 +56,7 @@ export async function analyzeText(
 
   messages.push(
     // Gemini rejects empty parts, so an empty response gets a placeholder.
-    { role: 'model', text: firstOutput.length > 0 ? firstOutput : '(empty response)' },
+    { role: 'assistant', text: firstOutput.length > 0 ? firstOutput : '(empty response)' },
     { role: 'user', text: buildCorrectionPrompt(first.issues) },
   );
   const second = parseLlmOutput(await request());
@@ -74,6 +70,6 @@ export async function analyzeText(
  * Entry point for analyzing a whole document. Currently a single call; this is
  * where splitting into chunks and merging their results will be added.
  */
-export function analyzeDocument(text: string, generate: GenerateJson): Promise<LlmAnalysis> {
-  return analyzeText(text, generate);
+export function analyzeDocument(text: string, llm: LlmProvider): Promise<LlmAnalysis> {
+  return analyzeText(text, llm);
 }

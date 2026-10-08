@@ -4,18 +4,19 @@ import { parseMaxTextChars } from '../config';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
 import { analyzeDocument } from '../lib/analyze';
-import { createGeminiClient, type GenerateJson } from '../lib/gemini';
+import { createGeminiProvider } from '../lib/llm/gemini';
+import type { LlmProvider } from '../lib/llm/types';
 
 export interface AnalyzeHandlerOptions {
-  /** Overrides the LLM client (tests). Defaults to Gemini configured from env. */
-  createLlm?: (env: AppEnv['Bindings']) => GenerateJson;
+  /** Overrides the LLM provider (tests). Defaults to Gemini configured from env. */
+  createLlm?: (env: AppEnv['Bindings']) => LlmProvider;
 }
 
-function defaultCreateLlm(env: AppEnv['Bindings']): GenerateJson {
+function defaultCreateLlm(env: AppEnv['Bindings']): LlmProvider {
   if (!env.LLM_API_KEY || !env.LLM_MODEL) {
     throw new ApiError('INTERNAL', { cause: new Error('LLM is not configured') });
   }
-  return createGeminiClient({ apiKey: env.LLM_API_KEY, model: env.LLM_MODEL });
+  return createGeminiProvider({ apiKey: env.LLM_API_KEY, model: env.LLM_MODEL });
 }
 
 export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
