@@ -23,7 +23,12 @@ LLM_MODEL = "gemini-3.8-flash"
 ALLOWED_ORIGINS = "https://masterxxo.github.io,http://localhost:5173"
 MAX_TEXT_CHARS = "150000"
 
-# Per-IP limit for POST /analyze, matching the Gemini free-tier quota (5 requests/min).
+# Analysis results, keyed by a hash of the prompt and the document text (7-day TTL).
+[[kv_namespaces]]
+binding = "ANALYSIS_CACHE"
+id = "163027fd78a24a859cba2e9688bba8bd"
+
+# Per-IP limit for POST /analyze (5 requests/min), kept low for the free LLM plans.
 # namespace_id must be unique within the account.
 [[ratelimits]]
 name = "ANALYZE_RATE_LIMITER"

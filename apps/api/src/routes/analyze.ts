@@ -1,10 +1,11 @@
-import { AnalysisResultSchema, AnalyzeRequestSchema } from '@pdf-insight/shared';
+import { AnalysisResultSchema, AnalyzeRequestSchema, type LlmAnalysis } from '@pdf-insight/shared';
 import type { Context } from 'hono';
 import { parseMaxTextChars } from '../config';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { PROVIDER_HEADER } from '../headers';
+import { CACHE_HEADER, PROVIDER_HEADER } from '../headers';
 import { analyzeDocument } from '../lib/analyze';
+import { analysisCacheKey, readCachedAnalysis, writeCachedAnalysis } from '../lib/cache';
 import { ProviderChain, type ProviderChainOptions } from '../lib/llm/chain';
 import { createGeminiProvider } from '../lib/llm/gemini';
 import { createMistralProvider } from '../lib/llm/mistral';
@@ -52,18 +53,33 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
       throw new ApiError('TEXT_TOO_LONG');
     }
 
+    // fileName and pages come from the client, never from the model or the cache.
+    const respond = (analysis: LlmAnalysis, provider: string, cache: 'HIT' | 'MISS') => {
+      const result = AnalysisResultSchema.safeParse({
+        ...analysis,
+        document: { ...analysis.document, fileName, pages },
+      });
+      if (!result.success) {
+        throw new ApiError('INTERNAL', { cause: result.error });
+      }
+      c.header(PROVIDER_HEADER, provider);
+      c.header(CACHE_HEADER, cache);
+      return c.json(result.data);
+    };
+
+    const cacheKey = await analysisCacheKey(text);
+    const cached = await readCachedAnalysis(c.env.ANALYSIS_CACHE, cacheKey);
+    if (cached) {
+      return respond(cached.analysis, cached.provider, 'HIT');
+    }
+
     const llm = new ProviderChain(createProviders(c.env), options.chain);
     const analysis = await analyzeDocument(text, llm, c.req.raw.signal);
+    // Set whenever the chain returned output, which analyzeDocument requires.
+    const provider = llm.lastProvider ?? 'unknown';
 
-    // fileName and pages come from the client, never from the model.
-    const result = AnalysisResultSchema.safeParse({
-      ...analysis,
-      document: { ...analysis.document, fileName, pages },
-    });
-    if (!result.success) {
-      throw new ApiError('INTERNAL', { cause: result.error });
-    }
-    c.header(PROVIDER_HEADER, llm.lastProvider);
-    return c.json(result.data);
+    const response = respond(analysis, provider, 'MISS');
+    await writeCachedAnalysis(c.env.ANALYSIS_CACHE, cacheKey, { analysis, provider });
+    return response;
   };
 }

@@ -10,6 +10,8 @@ export interface Env {
   /** Maximum length of the document text, as a string (wrangler vars are strings). */
   MAX_TEXT_CHARS: string;
   ANALYZE_RATE_LIMITER: RateLimit;
+  /** Analysis results keyed by a hash of the prompt and text (see lib/cache.ts). */
+  ANALYSIS_CACHE: KVNamespace;
 }
 
 export type AppEnv = { Bindings: Env };

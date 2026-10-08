@@ -1,4 +1,5 @@
 import type { LlmAnalysis } from '@pdf-insight/shared';
+import { expect } from 'vitest';
 import type { Env } from '../env';
 
 export function makeLlmAnalysis(): LlmAnalysis {
@@ -39,6 +40,32 @@ export const isMistralUrl = (url: unknown) => String(url).startsWith('https://ap
 export const isGeminiUrl = (url: unknown) =>
   String(url).startsWith('https://generativelanguage.googleapis.com/');
 
+export interface MemoryKv {
+  kv: KVNamespace;
+  entries: Map<string, { value: string; metadata: unknown; expirationTtl: number | undefined }>;
+}
+
+/** An in-memory stand-in for the parts of KVNamespace the API uses. */
+export function createMemoryKv(): MemoryKv {
+  const entries: MemoryKv['entries'] = new Map();
+  const fake = {
+    getWithMetadata: (key: string, type: 'json') => {
+      expect(type).toBe('json');
+      const entry = entries.get(key);
+      return Promise.resolve({
+        value: entry ? (JSON.parse(entry.value) as unknown) : null,
+        metadata: entry?.metadata ?? null,
+        cacheStatus: null,
+      });
+    },
+    put: (key: string, value: string, options: KVNamespacePutOptions = {}) => {
+      entries.set(key, { value, metadata: options.metadata, expirationTtl: options.expirationTtl });
+      return Promise.resolve();
+    },
+  };
+  return { kv: fake as unknown as KVNamespace, entries };
+}
+
 export function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
     MISTRAL_API_KEY: 'test-mistral-key',
@@ -48,6 +75,7 @@ export function makeEnv(overrides: Partial<Env> = {}): Env {
     ALLOWED_ORIGINS: 'https://masterxxo.github.io,http://localhost:5173',
     MAX_TEXT_CHARS: '1000',
     ANALYZE_RATE_LIMITER: { limit: () => Promise.resolve({ success: true }) },
+    ANALYSIS_CACHE: createMemoryKv().kv,
     ...overrides,
   };
 }
