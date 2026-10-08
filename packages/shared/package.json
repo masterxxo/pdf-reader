@@ -1,0 +1,20 @@
+{
+  "name": "@pdf-insight/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write . --ignore-path ../../.prettierignore"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}
