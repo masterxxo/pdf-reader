@@ -1,26 +1,30 @@
-import { ACCEPTED_MIME_TYPE } from '@pdf-insight/shared';
+import { ACCEPTED_MIME_TYPE, type AnalysisResult, type AnalyzeRequest } from '@pdf-insight/shared';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { AppFooter } from './components/AppFooter';
+import { analyzeDocument } from './api/client';
+import { AnalysisError, isRetryableError } from './api/errors';
+import { AnalysisResultView } from './components/AnalysisResultView';
 import { AppHeader } from './components/AppHeader';
 import { ErrorMessage } from './components/ErrorMessage';
-import { ExtractionResult } from './components/ExtractionResult';
 import { PdfDropzone } from './components/PdfDropzone';
-import { extractPdfText, type PdfExtraction } from './lib/pdf';
+import { extractPdfText } from './lib/pdf';
 import { toPdfExtractionError } from './lib/pdfErrors';
 import { validateFile } from './lib/validateFile';
 
 type AppState =
   | { status: 'idle' }
   | { status: 'reading'; fileName: string }
-  | { status: 'extracted'; fileName: string; extraction: PdfExtraction }
-  | { status: 'error'; message: string };
+  | { status: 'analyzing'; input: AnalyzeRequest }
+  | { status: 'done'; result: AnalysisResult }
+  // retryInput is set when the analysis can be retried with the already extracted text.
+  | { status: 'error'; message: string; retryInput?: AnalyzeRequest };
 
 export function App() {
   const [state, setState] = useState<AppState>({ status: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropzoneRef = useRef<HTMLButtonElement>(null);
-  // Incremented per selected file; results of a superseded file are ignored.
+  // Incremented per run (file or retry); results of a superseded run are ignored.
   const runIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Dropping a file outside the dropzone would otherwise open it in the tab.
   useEffect(() => {
@@ -35,10 +39,39 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
+
+  /** Supersedes any run in progress and returns a checker for the new one. */
+  const startRun = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    const runId = ++runIdRef.current;
+    return () => runId === runIdRef.current;
+  };
+
+  const analyze = async (input: AnalyzeRequest, isCurrentRun: () => boolean) => {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setState({ status: 'analyzing', input });
+    try {
+      const result = await analyzeDocument(input, { signal: controller.signal });
+      if (!isCurrentRun()) return;
+      setState({ status: 'done', result });
+    } catch (error) {
+      if (!isCurrentRun() || controller.signal.aborted) return;
+      const analysisError =
+        error instanceof AnalysisError ? error : new AnalysisError('UNKNOWN', { cause: error });
+      setState({
+        status: 'error',
+        message: analysisError.message,
+        retryInput: isRetryableError(analysisError.code) ? input : undefined,
+      });
+    }
+  };
+
   // Single entry point for every state transition after a file is chosen.
   const handleFile = async (file: File) => {
-    const runId = ++runIdRef.current;
-    const isCurrentRun = () => runId === runIdRef.current;
+    const isCurrentRun = startRun();
 
     const validation = await validateFile(file);
     if (!isCurrentRun()) return;
@@ -48,14 +81,21 @@ export function App() {
     }
 
     setState({ status: 'reading', fileName: file.name });
+    let extraction;
     try {
-      const extraction = await extractPdfText(file);
-      if (!isCurrentRun()) return;
-      setState({ status: 'extracted', fileName: file.name, extraction });
+      extraction = await extractPdfText(file);
     } catch (error) {
       if (!isCurrentRun()) return;
       setState({ status: 'error', message: toPdfExtractionError(error).message });
+      return;
     }
+    if (!isCurrentRun()) return;
+
+    // Analysis starts automatically; only text and metadata leave the browser.
+    await analyze(
+      { fileName: file.name, pages: extraction.pages, text: extraction.text },
+      isCurrentRun,
+    );
   };
 
   const openFilePicker = () => {
@@ -72,65 +112,77 @@ export function App() {
   };
 
   const handleRetry = () => {
+    if (state.status === 'error' && state.retryInput) {
+      // Re-send the already extracted text; the PDF is not read again.
+      void analyze(state.retryInput, startRun());
+      return;
+    }
     setState({ status: 'idle' });
     dropzoneRef.current?.focus();
   };
 
   const isReading = state.status === 'reading';
+  const busyFileName =
+    state.status === 'reading'
+      ? state.fileName
+      : state.status === 'analyzing'
+        ? state.input.fileName
+        : null;
 
   return (
     <div className="app">
       <AppHeader />
       <main className="app-main">
-        <section className="card" aria-labelledby="upload-heading">
-          <h2 id="upload-heading" className="card-title">
-            Przeanalizuj dokument PDF
-          </h2>
+        {state.status === 'done' ? (
+          <AnalysisResultView result={state.result} onAnalyzeAnother={openFilePicker} />
+        ) : (
+          <section className="card" aria-labelledby="upload-heading">
+            <h2 id="upload-heading" className="card-title">
+              Przeanalizuj dokument PDF
+            </h2>
 
-          {state.status === 'error' && (
-            <ErrorMessage message={state.message} onRetry={handleRetry} />
-          )}
+            {state.status === 'error' && (
+              <ErrorMessage message={state.message} onRetry={handleRetry} />
+            )}
 
-          {state.status === 'extracted' ? (
-            <ExtractionResult
-              fileName={state.fileName}
-              extraction={state.extraction}
-              onChooseAnother={openFilePicker}
-            />
-          ) : (
+            {/* Stays usable while analyzing: a new file aborts the request in flight. */}
             <PdfDropzone
               ref={dropzoneRef}
               disabled={isReading}
               onActivate={openFilePicker}
               onFileDrop={(file) => void handleFile(file)}
             />
-          )}
 
-          {/* Always mounted so screen readers announce status changes. */}
-          <div className="status" role="status" aria-live="polite">
-            {isReading && (
-              <>
-                <span className="spinner" aria-hidden="true" />
-                <span>
-                  Odczytywanie dokumentu…
-                  <span className="status-file-name">{state.fileName}</span>
-                </span>
-              </>
-            )}
-          </div>
+            <p className="privacy-notice">
+              Treść dokumentu zostanie wysłana do zewnętrznego API sztucznej inteligencji (Google
+              Gemini) w celu analizy. Nie przesyłaj dokumentów zawierających poufne dane.
+            </p>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_MIME_TYPE}
-            className="visually-hidden"
-            tabIndex={-1}
-            aria-hidden="true"
-            onChange={handleInputChange}
-          />
-        </section>
+            {/* Always mounted so screen readers announce status changes. */}
+            <div className="status" role="status" aria-live="polite">
+              {busyFileName !== null && (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  <span>
+                    {isReading ? 'Odczytywanie dokumentu…' : 'Analizowanie treści…'}
+                    <span className="status-file-name">{busyFileName}</span>
+                  </span>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_MIME_TYPE}
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={handleInputChange}
+        />
       </main>
-      <AppFooter />
     </div>
   );
 }
