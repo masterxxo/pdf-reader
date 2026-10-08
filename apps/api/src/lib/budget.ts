@@ -32,6 +32,16 @@ export class TimeBudget {
     this.#now = options.now ?? Date.now;
   }
 
+  /** The same budget, ending `reserveMs` earlier (keeps time for a later step). */
+  withReserve(reserveMs: number): TimeBudget {
+    return new TimeBudget({
+      deadline: this.#deadline - reserveMs,
+      safetyMarginMs: this.#safetyMarginMs,
+      minAttemptMs: this.#minAttemptMs,
+      now: this.#now,
+    });
+  }
+
   remainingMs(): number {
     return Math.max(0, this.#deadline - this.#now());
   }

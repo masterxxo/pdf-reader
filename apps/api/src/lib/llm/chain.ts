@@ -16,6 +16,14 @@ export interface GenerateOptions {
   /** Name of the call in metrics, e.g. "analyze" or "retry". */
   label?: string;
   maxOutputTokens?: number;
+  /** Overrides the chain's budget for this call (e.g. one that keeps time for a later step). */
+  budget?: TimeBudget;
+  /**
+   * Wait for a short Retry-After and re-send a rate-limited call, instead of
+   * falling back at once. Always on for retries; parallel chunk calls use it
+   * too, as they can briefly exceed a per-second limit.
+   */
+  waitOnRateLimit?: boolean;
 }
 
 export interface ProviderChainOptions {
@@ -38,6 +46,7 @@ interface CallOptions {
   signal: AbortSignal | undefined;
   label: string;
   maxOutputTokens: number | undefined;
+  budget: TimeBudget | undefined;
 }
 
 const DEFAULT_MAX_RETRY_WAIT_MS = 2_000;
@@ -92,8 +101,10 @@ export class ProviderChain {
       isRetry = false,
       label = isRetry ? 'retry' : 'analyze',
       maxOutputTokens,
+      budget = this.#budget,
+      waitOnRateLimit = isRetry,
     } = options;
-    const call: CallOptions = { signal, label, maxOutputTokens };
+    const call: CallOptions = { signal, label, maxOutputTokens, budget };
 
     for (let index = this.#current; index < this.#providers.length; index++) {
       const provider = this.#providers[index];
@@ -101,7 +112,7 @@ export class ProviderChain {
         break;
       }
       try {
-        const output = await this.#call(provider, prompt, jsonSchema, call, isRetry);
+        const output = await this.#call(provider, prompt, jsonSchema, call, waitOnRateLimit);
         this.#current = index;
         this.#lastProvider = provider.name;
         return output.text;
@@ -116,21 +127,26 @@ export class ProviderChain {
   }
 
   /**
-   * A correction attempt follows the first call within about a second, which
-   * free plans often reject as too many requests per second. It is re-sent
-   * once after a short wait, so it does not needlessly fall back.
+   * A correction attempt follows the first call within about a second, and
+   * chunks of a long document are sent in parallel; free plans often reject
+   * both as too many requests per second. Such a call (waitOnRateLimit) is
+   * re-sent once after a short wait, so it does not needlessly fall back.
    */
   async #call(
     provider: LlmProvider,
     prompt: LlmPrompt,
     jsonSchema: JsonSchema,
     call: CallOptions,
-    isRetry: boolean,
+    waitOnRateLimit: boolean,
   ): Promise<LlmOutput> {
     try {
       return await this.#timedCall(provider, prompt, jsonSchema, call);
     } catch (error) {
-      if (!isRetry || !(error instanceof LlmProviderError) || error.code !== 'RATE_LIMITED') {
+      if (
+        !waitOnRateLimit ||
+        !(error instanceof LlmProviderError) ||
+        error.code !== 'RATE_LIMITED'
+      ) {
         throw error;
       }
       const waitMs = error.retryAfterMs ?? this.#defaultRetryWaitMs;
@@ -147,18 +163,18 @@ export class ProviderChain {
     provider: LlmProvider,
     prompt: LlmPrompt,
     jsonSchema: JsonSchema,
-    { signal, label, maxOutputTokens }: CallOptions,
+    { signal, label, maxOutputTokens, budget }: CallOptions,
   ): Promise<LlmOutput> {
     const metrics = this.#metrics;
     let timeoutMs: number | undefined;
     try {
       // Throws LLM_TIMEOUT (not a provider error, so no fallback) when too little time is left.
-      timeoutMs = this.#budget?.attemptTimeoutMs();
+      timeoutMs = budget?.attemptTimeoutMs();
     } catch (error) {
       metrics?.log('budget_exhausted', {
         provider: provider.name,
         label,
-        remainingMs: this.#budget?.remainingMs(),
+        remainingMs: budget?.remainingMs(),
       });
       throw error;
     }

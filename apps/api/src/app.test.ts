@@ -128,8 +128,13 @@ describe('POST /analyze', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('rejects text longer than MAX_TEXT_CHARS with 413 TEXT_TOO_LONG', async () => {
-    const response = await postAnalyze({ ...validRequest, text: 'a'.repeat(1001) });
+  it('rejects text needing more chunks than MAX_CHUNKS with 413 TEXT_TOO_LONG', async () => {
+    const paragraphs = Array.from(
+      { length: 40 },
+      (_, i) => `Akapit ${String(i)}. ${'treść '.repeat(20)}`,
+    );
+    const env = makeEnv({ SINGLE_CALL_MAX_TOKENS: '200', MAX_CHUNKS: '2' });
+    const response = await postAnalyze({ ...validRequest, text: paragraphs.join('\n\n') }, env);
     expect(response.status).toBe(413);
     expect(await errorCode(response)).toBe('TEXT_TOO_LONG');
     expect(fetchMock).not.toHaveBeenCalled();
@@ -137,7 +142,7 @@ describe('POST /analyze', () => {
 
   it('rejects a body over the size limit with 413 TEXT_TOO_LONG', async () => {
     const text = 'a'.repeat(MAX_BODY_BYTES + 1);
-    const response = await postAnalyze({ ...validRequest, text }, makeEnv({ MAX_TEXT_CHARS: '' }));
+    const response = await postAnalyze({ ...validRequest, text }, makeEnv());
     expect(response.status).toBe(413);
     expect(await errorCode(response)).toBe('TEXT_TOO_LONG');
   });

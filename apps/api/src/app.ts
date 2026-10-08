@@ -8,7 +8,10 @@ import { corsMiddleware } from './middleware/cors';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 import { createAnalyzeHandler, type AnalyzeHandlerOptions } from './routes/analyze';
 
-/** Only extracted text is sent, so 1 MB comfortably fits MAX_TEXT_CHARS. */
+/**
+ * Only extracted text is sent. 1 MB is several times more than the longest
+ * document that can be analyzed in time (rejected later as TEXT_TOO_LONG).
+ */
 export const MAX_BODY_BYTES = 1024 * 1024;
 
 export function createApp(options: AnalyzeHandlerOptions = {}) {

@@ -1,6 +1,6 @@
 import { AnalysisResultSchema, AnalyzeRequestSchema, type LlmAnalysis } from '@pdf-insight/shared';
 import type { Context } from 'hono';
-import { parseMaxTextChars } from '../config';
+import { parseLongDocumentConfig } from '../config';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
 import { CACHE_HEADER, PROVIDER_HEADER } from '../headers';
@@ -58,10 +58,6 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
     metrics.size('normalizedChars', text.length);
     metrics.size('estTokens', estimateTokens(text));
 
-    if (text.length > parseMaxTextChars(c.env.MAX_TEXT_CHARS)) {
-      throw new ApiError('TEXT_TOO_LONG');
-    }
-
     // fileName and pages come from the client, never from the model or the cache.
     const respond = (analysis: LlmAnalysis, provider: string, cache: 'HIT' | 'MISS') => {
       const result = AnalysisResultSchema.safeParse({
@@ -87,7 +83,12 @@ export function createAnalyzeHandler(options: AnalyzeHandlerOptions = {}) {
       now: () => metrics.now(),
     });
     const llm = new ProviderChain(createProviders(c.env), { ...options.chain, metrics, budget });
-    const analysis = await analyzeDocument(text, llm, { signal: c.req.raw.signal, metrics });
+    const analysis = await analyzeDocument(text, llm, {
+      signal: c.req.raw.signal,
+      metrics,
+      budget,
+      config: parseLongDocumentConfig(c.env),
+    });
     // Set whenever the chain returned output, which analyzeDocument requires.
     const provider = llm.lastProvider ?? 'unknown';
 

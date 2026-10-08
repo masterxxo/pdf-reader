@@ -29,6 +29,8 @@ export const LIST_LIMITS = {
   keywords: 10,
 } as const;
 
+export type ListLimits = Record<keyof typeof LIST_LIMITS, number>;
+
 const LlmDocumentSchema = z.object({
   language: LanguageSchema,
   type: DocumentTypeSchema,

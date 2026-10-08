@@ -22,7 +22,11 @@ MISTRAL_MODEL = "ministral-8b-2512"
 LLM_MODEL = "gemini-3.8-flash"
 # Comma-separated, exact origins (scheme + host + optional port, no path).
 ALLOWED_ORIGINS = "https://masterxxo.github.io,http://localhost:5173"
-MAX_TEXT_CHARS = "150000"
+# Long documents: text above this many estimated tokens (~2.7 chars each) is
+# analyzed in up to MAX_CHUNKS chunks, CHUNK_CONCURRENCY at a time, then merged.
+SINGLE_CALL_MAX_TOKENS = "60000"
+MAX_CHUNKS = "2"
+CHUNK_CONCURRENCY = "2"
 
 # Analysis results, keyed by a hash of the prompt and the document text (7-day TTL).
 [[kv_namespaces]]

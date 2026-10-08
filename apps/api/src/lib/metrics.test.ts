@@ -35,7 +35,7 @@ describe('RequestMetrics', () => {
     expect(metrics.attempts.map((a) => [a.provider, a.label, a.outcome])).toEqual([
       ['mistral', 'analyze', 'timeout'],
       ['gemini', 'analyze', 'invalid_json'],
-      ['gemini', 'retry', 'ok'],
+      ['gemini', 'analyze-retry', 'ok'],
     ]);
     expect(metrics.attempts[1]?.usage).toEqual({ inputTokens: 900, outputTokens: 5 });
     expect(metrics.attempts.every((a) => a.durationMs > 0)).toBe(true);

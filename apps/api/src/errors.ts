@@ -5,7 +5,8 @@ const ERRORS: Record<ApiErrorCode, { status: ContentfulStatusCode; message: stri
   INVALID_REQUEST: { status: 400, message: 'Nieprawidłowe żądanie.' },
   TEXT_TOO_LONG: {
     status: 413,
-    message: 'Dokument jest zbyt długi, aby go przeanalizować.',
+    message:
+      'Dokument jest zbyt długi, aby przeanalizować go w limicie czasu. Prześlij krótszy dokument, np. wybrane strony.',
   },
   RATE_LIMITED: {
     status: 429,

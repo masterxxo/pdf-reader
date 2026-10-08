@@ -73,7 +73,6 @@ export function makeEnv(overrides: Partial<Env> = {}): Env {
     LLM_API_KEY: 'test-secret-key',
     LLM_MODEL: 'test-model',
     ALLOWED_ORIGINS: 'https://masterxxo.github.io,http://localhost:5173',
-    MAX_TEXT_CHARS: '1000',
     ANALYZE_RATE_LIMITER: { limit: () => Promise.resolve({ success: true }) },
     ANALYSIS_CACHE: createMemoryKv().kv,
     ...overrides,

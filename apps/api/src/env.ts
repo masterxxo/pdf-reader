@@ -9,8 +9,10 @@ export interface Env {
   LLM_MODEL: string;
   /** Comma-separated list of exact origins allowed by CORS. */
   ALLOWED_ORIGINS: string;
-  /** Maximum length of the document text, as a string (wrangler vars are strings). */
-  MAX_TEXT_CHARS: string;
+  /** Long documents (see parseLongDocumentConfig); wrangler vars are strings. */
+  SINGLE_CALL_MAX_TOKENS?: string;
+  MAX_CHUNKS?: string;
+  CHUNK_CONCURRENCY?: string;
   ANALYZE_RATE_LIMITER: RateLimit;
   /** Analysis results keyed by a hash of the prompt and text (see lib/cache.ts). */
   ANALYSIS_CACHE: KVNamespace;
